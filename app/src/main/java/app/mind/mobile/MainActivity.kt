@@ -358,7 +358,22 @@ private fun HabitsScreen(
 }
 
 @Composable
-private fun WaterScreen(water: Int, goal: Int, add: () -> Unit, remove: () -> Unit, setGoal: (Int) -> Unit) {
+private fun WaterScreen(water: Int, goal: Int, entries: List<WaterEntry>, add: () -> Unit, remove: () -> Unit, setGoal: (Int) -> Unit) {
+    val hourly = remember(entries) {
+        val today = java.util.Calendar.getInstance()
+        val start = (today.clone() as java.util.Calendar).apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val counts = IntArray(24)
+        entries.filter { it.recordedAt >= start && it.recordedAt <= System.currentTimeMillis() }.forEach { entry ->
+            val hour = java.util.Calendar.getInstance().apply { timeInMillis = entry.recordedAt }
+                .get(java.util.Calendar.HOUR_OF_DAY)
+            counts[hour]++
+        }
+        counts.toList()
+    }
+    val peak = (hourly.maxOrNull() ?: 0).coerceAtLeast(1)
     Column(Modifier.fillMaxSize().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         GlassCard {
             Text("الماء", fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -376,6 +391,23 @@ private fun WaterScreen(water: Int, goal: Int, add: () -> Unit, remove: () -> Un
                 OutlinedButton(onClick = remove, modifier = Modifier.weight(1f)) { Text("−") }
                 Button(onClick = add, modifier = Modifier.weight(2f), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("إضافة كوب") }
             }
+        }
+        GlassCard {
+            Text("التوزيع خلال اليوم", fontWeight = FontWeight.Bold)
+            Text("عدد الأكواب المسجلة في كل ساعة", color = Muted, fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth().height(116.dp), horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.Bottom) {
+                hourly.forEachIndexed { hour, count ->
+                    Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom) {
+                        Box(Modifier.fillMaxWidth().height((76f * count / peak).coerceAtLeast(if (count > 0) 5f else 2f).dp)
+                            .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                            .background(if (count > 0) Gold else Color(0x25FFFFFF)))
+                        if (hour % 6 == 0) Text(hour.toString(), fontSize = 8.sp, color = Muted)
+                    }
+                }
+            }
+            Text("الإجمالي المسجل اليوم: ${hourly.sum()} كوب", color = Gold, fontSize = 12.sp)
         }
         GlassCard {
             Text("الهدف اليومي", fontWeight = FontWeight.Bold)
