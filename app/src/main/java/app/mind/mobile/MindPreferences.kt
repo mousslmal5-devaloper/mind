@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,6 +15,7 @@ private val Context.mindDataStore by preferencesDataStore(name = "mind_local_dat
 
 data class StudySession(val completedAt: Long, val durationMinutes: Int)
 data class WaterEntry(val recordedAt: Long)
+data class SleepSession(val startedAt: Long, val endedAt: Long) { val durationMinutes: Int get() = ((endedAt - startedAt) / 60000L).toInt() }
 
 data class MindSavedState(
     val water: Int = 0,
@@ -22,6 +24,8 @@ data class MindSavedState(
     val steps: Int = 0,
     val studyMinutes: Int = 0,
     val sleepHours: Float = 0f,
+    val sleepSessions: List<SleepSession> = emptyList(),
+    val activeSleepStartedAt: Long = 0L,
     val habitMask: Int = 0,
     val habitNames: String = "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم",
     val noteText: String = "",
@@ -45,6 +49,8 @@ private object MindPreferenceKeys {
     val focusDurationMinutes = intPreferencesKey("focus_duration_minutes")
     val studySessions = stringPreferencesKey("study_sessions")
     val waterEntries = stringPreferencesKey("water_entries")
+    val sleepSessions = stringPreferencesKey("sleep_sessions")
+    val activeSleepStartedAt = longPreferencesKey("active_sleep_started_at")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -55,6 +61,8 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
         steps = (preferences[MindPreferenceKeys.steps] ?: 0).coerceIn(0, 100_000),
         studyMinutes = (preferences[MindPreferenceKeys.studyMinutes] ?: 0).coerceAtLeast(0),
         sleepHours = (preferences[MindPreferenceKeys.sleepHours] ?: 0f).coerceIn(0f, 16f),
+        sleepSessions = decodeSleepSessions(preferences[MindPreferenceKeys.sleepSessions] ?: "[]"),
+        activeSleepStartedAt = (preferences[MindPreferenceKeys.activeSleepStartedAt] ?: 0L).coerceAtLeast(0L),
         habitMask = (preferences[MindPreferenceKeys.habitMask] ?: 0).coerceAtLeast(0),
         habitNames = preferences[MindPreferenceKeys.habitNames]
             ?: "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم",
@@ -75,6 +83,8 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.steps] = state.steps.coerceIn(0, 100_000)
         preferences[MindPreferenceKeys.studyMinutes] = state.studyMinutes.coerceAtLeast(0)
         preferences[MindPreferenceKeys.sleepHours] = state.sleepHours.coerceIn(0f, 16f)
+        preferences[MindPreferenceKeys.sleepSessions] = encodeSleepSessions(state.sleepSessions)
+        preferences[MindPreferenceKeys.activeSleepStartedAt] = state.activeSleepStartedAt.coerceAtLeast(0L)
         preferences[MindPreferenceKeys.habitMask] = state.habitMask.coerceAtLeast(0)
         preferences[MindPreferenceKeys.habitNames] = state.habitNames
         preferences[MindPreferenceKeys.noteText] = state.noteText
@@ -121,4 +131,21 @@ private fun decodeWaterEntries(raw: String): List<WaterEntry> = runCatching {
             if (timestamp > 0L) add(WaterEntry(timestamp))
         }
     }.takeLast(20000)
+}.getOrDefault(emptyList())
+
+private fun encodeSleepSessions(sessions: List<SleepSession>): String = JSONArray().apply {
+    sessions.takeLast(2000).forEach { put(JSONObject().put("startedAt", it.startedAt).put("endedAt", it.endedAt)) }
+}.toString()
+
+private fun decodeSleepSessions(raw: String): List<SleepSession> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val start = item.optLong("startedAt", 0L)
+            val end = item.optLong("endedAt", 0L)
+            val duration = (end - start) / 60000L
+            if (start > 0L && end > start && duration in 1..960) add(SleepSession(start, end))
+        }
+    }.takeLast(2000)
 }.getOrDefault(emptyList())
