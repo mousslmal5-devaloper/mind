@@ -1062,10 +1062,31 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
             }
         }
         item {
+            val recentSessions = sessions.sortedByDescending { it.endedAt }.take(7)
+            val averageMinutes = recentSessions.takeIf { it.isNotEmpty() }?.map { it.durationMinutes }?.average()
+            val goalProgress = ((averageMinutes ?: 0.0) / 480.0).toFloat().coerceIn(0f, 1f)
             GlassCard {
                 Text("ملخص النوم", color = Gold, fontWeight = FontWeight.Bold)
                 Text("عدد الجلسات: ${sessions.size}")
                 Text(latest?.let { "آخر جلسة: %.1f ساعة".format(it.durationMinutes / 60f) } ?: "لا توجد جلسات مسجلة بعد", color = Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("متوسط آخر 7 جلسات", color = Muted, fontSize = 11.sp)
+                        Text(averageMinutes?.let { "%.1f ساعة".format(it / 60.0) } ?: "—", color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("مقارنة بهدف 8 ساعات", color = Muted, fontSize = 11.sp)
+                        Text(averageMinutes?.let { "${(it / 480.0 * 100).toInt()}%" } ?: "—", color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { goalProgress },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    color = Gold,
+                    trackColor = GlassBorder
+                )
+                Text("المتوسط محسوب من الجلسات المسجلة فقط، ولا تُضاف بيانات تقديرية.", color = Muted, fontSize = 10.sp)
             }
         }
         item { Text("سجل النوم", color = Gold, fontWeight = FontWeight.Bold) }
