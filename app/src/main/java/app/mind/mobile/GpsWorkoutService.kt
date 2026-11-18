@@ -16,6 +16,11 @@ import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class GpsWorkoutService : Service(), LocationListener {
     private lateinit var locationManager: LocationManager
@@ -26,6 +31,7 @@ class GpsWorkoutService : Service(), LocationListener {
     private var startedAtMillis = 0L
     private var lastAccepted: Location? = null
     private var gpsReady = false
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -117,7 +123,16 @@ class GpsWorkoutService : Service(), LocationListener {
         runCatching { locationManager.removeUpdates(this) }
         publish(false, "انتهت جلسة $workoutType", completed = duration >= 5L, endedAt = endedAt)
         stopForegroundCompat()
-        stopSelf()
+        if (duration >= 5L && startedAtMillis > 0L) {
+            val session = WorkoutSession(startedAtMillis, endedAt, workoutType, distanceMeters, duration)
+            serviceScope.launch {
+                runCatching { appendWorkoutSession(applicationContext, session) }
+                    .onFailure { Log.e(TAG, "Unable to persist completed workout", it) }
+                stopSelf()
+            }
+        } else {
+            stopSelf()
+        }
     }
 
     private fun publish(isActive: Boolean, message: String, completed: Boolean = false, endedAt: Long = 0L) {
@@ -166,6 +181,7 @@ class GpsWorkoutService : Service(), LocationListener {
     override fun onDestroy() {
         active = false
         runCatching { locationManager.removeUpdates(this) }
+        serviceScope.cancel()
         super.onDestroy()
     }
 
