@@ -166,95 +166,165 @@ private fun MindRoot() {
         onPrimary = Color(0xFF15130A), onBackground = Color(0xFFF4F4F6),
         onSurface = Color(0xFFF4F4F6)
     )) {
-        Box(Modifier.fillMaxSize().background(Ink)) {
+        BoxWithConstraints(Modifier.fillMaxSize().background(Ink)) {
+            val wideLayout = maxWidth >= 700.dp
+            val expandedRail = maxWidth >= 1000.dp
             ReferenceAtmosphere()
-            Column(Modifier.fillMaxSize()) {
-                AnimatedContent(targetState = page, label = "mind-screen") { target ->
-                    Column(Modifier.weight(1f).fillMaxWidth()) {
-                        if (target != "home") {
-                            Row(
-                                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = { page = "home" }) {
-                                    Icon(Icons.Rounded.ArrowBack, "رجوع", tint = Gold)
+            Row(Modifier.fillMaxSize()) {
+                if (wideLayout) {
+                    SideNavigation(
+                        page = page,
+                        expanded = expandedRail,
+                        onSelect = { page = it }
+                    )
+                }
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    AnimatedContent(
+                        targetState = page,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        label = "mind-screen"
+                    ) { target ->
+                        Column(Modifier.fillMaxSize()) {
+                            if (target != "home") {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(onClick = { page = "home" }) {
+                                        Icon(Icons.Rounded.ArrowBack, "رجوع", tint = Gold)
+                                    }
+                                    Text(pageTitle(target), fontWeight = FontWeight.Bold, fontSize = 19.sp)
                                 }
-                                Text(pageTitle(target), fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                            }
+                            when (target) {
+                                "home" -> Dashboard(
+                                    habits = habits, habitMask = habitMask, water = water,
+                                    waterGoal = waterGoal, steps = steps, studyMinutes = studyMinutes,
+                                    onOpen = { page = it }
+                                )
+                                "habits" -> HabitsScreen(
+                                    habits, habitMask, newHabit,
+                                    onNewHabit = { newHabit = it },
+                                    onAdd = {
+                                        val clean = newHabit.trim()
+                                        if (clean.isNotEmpty() && habits.size < 20 && !habits.contains(clean)) {
+                                            habitNames = (habits + clean).joinToString("|")
+                                            newHabit = ""
+                                        }
+                                    },
+                                    onToggle = { index -> habitMask = habitMask xor (1 shl index) }
+                                )
+                                "water" -> WaterScreen(
+                                    water, waterGoal, waterEntries,
+                                    { if (water < 40) { water += 1; waterEntries = (waterEntries + WaterEntry(System.currentTimeMillis())).takeLast(20000) } },
+                                    { if (water > 0) { water -= 1; waterEntries = waterEntries.dropLast(1) } },
+                                    { waterGoal = it.coerceIn(1, 20) }
+                                )
+                                "study" -> StudyScreen(
+                                    mode = focusMode, seconds = focusSeconds, running = focusRunning,
+                                    totalMinutes = studyMinutes, focusDurationMinutes = focusDurationMinutes,
+                                    sessions = studySessions,
+                                    onOpenMindMap = { page = "mindmap" },
+                                    onMode = { focusMode = it; focusRunning = false; focusSeconds = if (it == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
+                                    onPreset = { minutes -> focusRunning = false; focusDurationMinutes = minutes; if (focusMode == "تركيز") focusSeconds = minutes * 60 },
+                                    onToggle = { focusRunning = !focusRunning && focusSeconds > 0 },
+                                    onReset = { focusRunning = false; focusSeconds = if (focusMode == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
+                                    onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
+                                )
+                                "mindmap" -> MindMapScreen()
+                                "fitness" -> FitnessScreen(
+                                    steps, { steps = (steps + 500).coerceAtMost(100000) },
+                                    { steps = (steps - 500).coerceAtLeast(0) }
+                                )
+                                "sleep" -> SleepScreen(
+                                    hours = sleepHours, sessions = sleepSessions,
+                                    activeStartedAt = activeSleepStartedAt,
+                                    onStart = { if (activeSleepStartedAt == 0L) activeSleepStartedAt = System.currentTimeMillis() },
+                                    onWake = {
+                                        val now = System.currentTimeMillis()
+                                        val elapsed = (now - activeSleepStartedAt) / 60000L
+                                        if (activeSleepStartedAt > 0L && elapsed in 1..960) {
+                                            sleepSessions = (sleepSessions + SleepSession(activeSleepStartedAt, now)).takeLast(2000)
+                                            sleepHours = elapsed / 60f
+                                            activeSleepStartedAt = 0L
+                                        }
+                                    },
+                                    onDelete = { session -> sleepSessions = sleepSessions.filterNot { it.startedAt == session.startedAt } }
+                                )
+                                "notes" -> NotesScreen(noteText, { noteText = it })
+                                "settings" -> SettingsScreen(onAccount = { page = "auth" })
+                                "auth" -> AuthScreen(onSignedIn = { page = "home" })
+                                else -> Dashboard(
+                                    habits = habits, habitMask = habitMask, water = water,
+                                    waterGoal = waterGoal, steps = steps, studyMinutes = studyMinutes,
+                                    onOpen = { page = it }
+                                )
                             }
                         }
-                        when (target) {
-                            "home" -> Dashboard(
-                                habits = habits,
-                                habitMask = habitMask,
-                                water = water,
-                                waterGoal = waterGoal,
-                                steps = steps,
-                                studyMinutes = studyMinutes,
-                                onOpen = { page = it }
-                            )
-                            "habits" -> HabitsScreen(
-                                habits, habitMask, newHabit,
-                                onNewHabit = { newHabit = it },
-                                onAdd = {
-                                    val clean = newHabit.trim()
-                                    if (clean.isNotEmpty() && habits.size < 20 && !habits.contains(clean)) {
-                                        habitNames = (habits + clean).joinToString("|")
-                                        newHabit = ""
-                                    }
-                                },
-                                onToggle = { index -> habitMask = habitMask xor (1 shl index) }
-                            )
-                            "water" -> WaterScreen(water, waterGoal, waterEntries,
-                                { if (water < 40) { water += 1; waterEntries = (waterEntries + WaterEntry(System.currentTimeMillis())).takeLast(20000) } },
-                                { if (water > 0) { water -= 1; waterEntries = waterEntries.dropLast(1) } },
-                                { waterGoal = it.coerceIn(1, 20) })
-                            "study" -> StudyScreen(
-                                mode = focusMode, seconds = focusSeconds, running = focusRunning,
-                                totalMinutes = studyMinutes, focusDurationMinutes = focusDurationMinutes,
-                                sessions = studySessions,
-                                onOpenMindMap = { page = "mindmap" },
-                                onMode = { focusMode = it; focusRunning = false; focusSeconds = if (it == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
-                                onPreset = { minutes -> focusRunning = false; focusDurationMinutes = minutes; if (focusMode == "تركيز") focusSeconds = minutes * 60 },
-                                onToggle = { focusRunning = !focusRunning && focusSeconds > 0 },
-                                onReset = { focusRunning = false; focusSeconds = if (focusMode == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
-                                onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
-                            )
-                            "mindmap" -> MindMapScreen()
-                            "fitness" -> FitnessScreen(steps, { steps = (steps + 500).coerceAtMost(100000) },
-                                { steps = (steps - 500).coerceAtLeast(0) })
-                            "sleep" -> SleepScreen(
-    hours = sleepHours,
-    sessions = sleepSessions,
-    activeStartedAt = activeSleepStartedAt,
-    onStart = { if (activeSleepStartedAt == 0L) activeSleepStartedAt = System.currentTimeMillis() },
-    onWake = {
-        val now = System.currentTimeMillis()
-        val elapsed = (now - activeSleepStartedAt) / 60000L
-        if (activeSleepStartedAt > 0L && elapsed in 1..960) {
-            sleepSessions = (sleepSessions + SleepSession(activeSleepStartedAt, now)).takeLast(2000)
-            sleepHours = elapsed / 60f
-            activeSleepStartedAt = 0L
-        }
-    },
-    onDelete = { session -> sleepSessions = sleepSessions.filterNot { it.startedAt == session.startedAt } }
-)
-                            "notes" -> NotesScreen(noteText, { noteText = it })
-                            "settings" -> SettingsScreen(onAccount = { page = "auth" })
-                            "auth" -> AuthScreen(onSignedIn = { page = "home" })
-                            else -> Dashboard(habitsDone = 0, habitsTotal = habits.size, water = water,
-                                waterGoal = waterGoal, steps = steps, studyMinutes = studyMinutes,
-                                onOpen = { page = it })
-                        }
                     }
-                }
-                NavigationBar(containerColor = Color(0xE6151518), contentColor = Color.White) {
-                    NavigationBarItem(page == "home", { page = "home" }, { Icon(Icons.Rounded.Home, null) }, label = { Text("الرئيسية") })
-                    NavigationBarItem(page == "habits", { page = "habits" }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("العادات") })
-                    NavigationBarItem(page == "water", { page = "water" }, { Icon(Icons.Rounded.WaterDrop, null) }, label = { Text("الماء") })
-                    NavigationBarItem(page == "settings", { page = "settings" }, { Icon(Icons.Rounded.Settings, null) }, label = { Text("الإعدادات") })
+                    if (!wideLayout) {
+                        BottomNavigation(page = page, onSelect = { page = it })
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SideNavigation(page: String, expanded: Boolean, onSelect: (String) -> Unit) {
+    Column(
+        Modifier.width(if (expanded) 230.dp else 84.dp).fillMaxHeight()
+            .background(Glass).border(1.dp, GlassBorder)
+            .padding(horizontal = 12.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            if (expanded) "MIND" else "M",
+            modifier = Modifier.fillMaxWidth().padding(bottom = 22.dp),
+            color = Gold, fontSize = if (expanded) 22.sp else 18.sp,
+            fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp,
+            textAlign = if (expanded) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.Center
+        )
+        RailItem("الرئيسية", "home", Icons.Rounded.Home, page, expanded, onSelect)
+        RailItem("العادات", "habits", Icons.Rounded.CheckCircle, page, expanded, onSelect)
+        RailItem("الماء", "water", Icons.Rounded.WaterDrop, page, expanded, onSelect)
+        RailItem("الإعدادات", "settings", Icons.Rounded.Settings, page, expanded, onSelect)
+        Spacer(Modifier.weight(1f))
+        if (expanded) Text("عقلك، وقتك، حياتك", color = Muted, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun RailItem(
+    label: String, route: String, icon: androidx.compose.ui.graphics.vector.ImageVector,
+    page: String, expanded: Boolean, onSelect: (String) -> Unit
+) {
+    val selected = page == route
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+            .background(if (selected) Gold else Color.Transparent)
+            .clickable { onSelect(route) }.padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (expanded) Arrangement.Start else Arrangement.Center
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) Ink else Muted, modifier = Modifier.size(22.dp))
+        if (expanded) Text(label, modifier = Modifier.padding(start = 12.dp), color = if (selected) Ink else Muted, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun BottomNavigation(page: String, onSelect: (String) -> Unit) {
+    NavigationBar(
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(24.dp)).border(1.dp, GlassBorder, RoundedCornerShape(24.dp)),
+        containerColor = Color(0xE6151518), contentColor = Color.White,
+        tonalElevation = 0.dp, windowInsets = WindowInsets(0)
+    ) {
+        NavigationBarItem(page == "home", { onSelect("home") }, { Icon(Icons.Rounded.Home, null) }, label = { Text("الرئيسية") })
+        NavigationBarItem(page == "habits", { onSelect("habits") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("العادات") })
+        NavigationBarItem(page == "water", { onSelect("water") }, { Icon(Icons.Rounded.WaterDrop, null) }, label = { Text("الماء") })
+        NavigationBarItem(page == "settings", { onSelect("settings") }, { Icon(Icons.Rounded.Settings, null) }, label = { Text("الإعدادات") })
     }
 }
 
@@ -766,13 +836,17 @@ private fun SettingsScreen(onAccount: () -> Unit) {
 
 @Composable
 private fun ReferenceAtmosphere() {
-    val transition = rememberInfiniteTransition(label = "ambient")
-    val x by transition.animateFloat(-30f, 35f, infiniteRepeatable(tween(30000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "x")
-    val y by transition.animateFloat(-20f, 30f, infiniteRepeatable(tween(26000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "y")
-    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0x20E8C547), Color.Transparent), radius = 950f))) {
-        Box(Modifier.offset(x.dp, y.dp).size(300.dp).align(Alignment.TopStart).blur(75.dp).background(Color(0x1FE8C547), CircleShape))
-        Box(Modifier.offset((-25).dp, 55.dp).size(280.dp).align(Alignment.BottomEnd).blur(80.dp).background(Color(0x182F79A8), CircleShape))
-        Box(Modifier.offset(20.dp, (-25).dp).size(220.dp).align(Alignment.CenterEnd).blur(72.dp).background(Color(0x12E8C547), CircleShape))
+    val transition = rememberInfiniteTransition(label = "reference-orbs")
+    val x0 by transition.animateFloat(-24f, 34f, infiniteRepeatable(tween(30000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-x0")
+    val y0 by transition.animateFloat(-18f, 28f, infiniteRepeatable(tween(36000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-y0")
+    val x1 by transition.animateFloat(22f, -30f, infiniteRepeatable(tween(33000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-x1")
+    val y1 by transition.animateFloat(28f, -20f, infiniteRepeatable(tween(40000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-y1")
+    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0x24E8C547), Color.Transparent), radius = 1050f))) {
+        Box(Modifier.offset(x0.dp, y0.dp).size(360.dp).align(Alignment.TopStart).blur(78.dp).background(Color(0x22E8C547), CircleShape))
+        Box(Modifier.offset(x1.dp, (-20).dp).size(300.dp).align(Alignment.TopEnd).blur(76.dp).background(Color(0x1CE8C547), CircleShape))
+        Box(Modifier.offset((-18).dp, y1.dp).size(330.dp).align(Alignment.CenterStart).blur(82.dp).background(Color(0x1AE8C547), CircleShape))
+        Box(Modifier.offset(26.dp, y0.dp).size(390.dp).align(Alignment.CenterEnd).blur(88.dp).background(Color(0x20E8C547), CircleShape))
+        Box(Modifier.offset(x1.dp, y1.dp).size(280.dp).align(Alignment.BottomStart).blur(82.dp).background(Color(0x18E8C547), CircleShape))
     }
 }
 
