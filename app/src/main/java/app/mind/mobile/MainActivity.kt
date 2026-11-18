@@ -75,6 +75,8 @@ private fun MindRoot() {
     var focusSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
     var focusRunning by rememberSaveable { mutableStateOf(false) }
     var focusMode by rememberSaveable { mutableStateOf("تركيز") }
+    var focusDurationMinutes by rememberSaveable { mutableIntStateOf(25) }
+    var studySessions by remember { mutableStateOf<List<StudySession>>(emptyList()) }
     val context = LocalContext.current
     var stateLoaded by rememberSaveable { mutableStateOf(false) }
 
@@ -92,12 +94,15 @@ private fun MindRoot() {
         noteText = saved.noteText
         focusSeconds = saved.focusSeconds
         focusMode = saved.focusMode
+        focusDurationMinutes = saved.focusDurationMinutes
+        studySessions = saved.studySessions
         stateLoaded = true
     }
 
     LaunchedEffect(
         stateLoaded, water, waterGoal, steps, studyMinutes, sleepHours,
-        habitMask, habitNames, noteText, focusSeconds, focusMode
+        habitMask, habitNames, noteText, focusSeconds, focusMode,
+        focusDurationMinutes, studySessions
     ) {
         if (stateLoaded) {
             runCatching {
@@ -113,7 +118,9 @@ private fun MindRoot() {
                         habitNames = habitNames,
                         noteText = noteText,
                         focusSeconds = focusSeconds,
-                        focusMode = focusMode
+                        focusMode = focusMode,
+                        focusDurationMinutes = focusDurationMinutes,
+                        studySessions = studySessions
                     )
                 )
             }.onFailure { Log.e("MIND", "Unable to persist local app data", it) }
@@ -127,7 +134,15 @@ private fun MindRoot() {
             focusSeconds -= 1
             if (focusSeconds == 0) {
                 focusRunning = false
-                if (focusMode == "تركيز") studyMinutes += 25
+                if (focusMode == "تركيز") {
+                    studySessions = (studySessions + StudySession(System.currentTimeMillis(), focusDurationMinutes)).takeLast(5000)
+                    studyMinutes += focusDurationMinutes
+                    focusMode = "استراحة"
+                    focusSeconds = 5 * 60
+                } else {
+                    focusMode = "تركيز"
+                    focusSeconds = focusDurationMinutes * 60
+                }
             }
         }
     }
@@ -179,15 +194,14 @@ private fun MindRoot() {
                                 { water = (water - 1).coerceAtLeast(0) },
                                 { waterGoal = it.coerceIn(1, 20) })
                             "study" -> StudyScreen(
-                                focusMode, focusSeconds, focusRunning, studyMinutes,
-                                onMode = {
-                                    focusMode = it
-                                    focusRunning = false
-                                    focusSeconds = if (it == "تركيز") 25 * 60 else 5 * 60
-                                },
+                                mode = focusMode, seconds = focusSeconds, running = focusRunning,
+                                totalMinutes = studyMinutes, focusDurationMinutes = focusDurationMinutes,
+                                sessions = studySessions,
+                                onMode = { focusMode = it; focusRunning = false; focusSeconds = if (it == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
+                                onPreset = { minutes -> focusRunning = false; focusDurationMinutes = minutes; if (focusMode == "تركيز") focusSeconds = minutes * 60 },
                                 onToggle = { focusRunning = !focusRunning && focusSeconds > 0 },
-                                onReset = { focusRunning = false; focusSeconds = if (focusMode == "تركيز") 25 * 60 else 5 * 60 },
-                                onAddTime = { focusSeconds += 5 * 60 }
+                                onReset = { focusRunning = false; focusSeconds = if (focusMode == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
+                                onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
                             )
                             "fitness" -> FitnessScreen(steps, { steps = (steps + 500).coerceAtMost(100000) },
                                 { steps = (steps - 500).coerceAtLeast(0) })
@@ -368,35 +382,120 @@ private fun WaterScreen(water: Int, goal: Int, add: () -> Unit, remove: () -> Un
 @Composable
 private fun StudyScreen(
     mode: String, seconds: Int, running: Boolean, totalMinutes: Int,
-    onMode: (String) -> Unit, onToggle: () -> Unit, onReset: () -> Unit, onAddTime: () -> Unit
+    focusDurationMinutes: Int, sessions: List<StudySession>,
+    onMode: (String) -> Unit, onPreset: (Int) -> Unit,
+    onToggle: () -> Unit, onReset: () -> Unit, onAddTime: () -> Unit
 ) {
-    val mins = seconds / 60
-    val secs = seconds % 60
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        GlassCard {
-            Text("الدراسة والتركيز", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-            Text("جلسات التركيز والاستراحة", color = Muted, fontSize = 13.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                FilterChip(selected = mode == "تركيز", onClick = { onMode("تركيز") }, label = { Text("تركيز 25 د") })
-                FilterChip(selected = mode == "استراحة", onClick = { onMode("استراحة") }, label = { Text("استراحة 5 د") })
+    val todayMinutes = remember(sessions) {
+        val now = java.util.Calendar.getInstance()
+        sessions.filter { session ->
+            val d = java.util.Calendar.getInstance().apply { timeInMillis = session.completedAt }
+            d.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+                d.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR)
+        }.sumOf { it.durationMinutes }
+    }
+    val week = remember(sessions) {
+        (6 downTo 0).map { offset ->
+            val day = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+                add(java.util.Calendar.DAY_OF_YEAR, -offset)
             }
-            Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(progress = { seconds.toFloat() / if (mode == "تركيز") 1500f else 300f },
-                    modifier = Modifier.size(190.dp), strokeWidth = 10.dp, color = Gold, trackColor = Color(0x22FFFFFF))
-                Text("%02d:%02d".format(mins, secs), fontSize = 38.sp, fontWeight = FontWeight.Bold)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = onToggle, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
-                    Text(if (running) "إيقاف مؤقت" else "ابدأ")
-                }
-                OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f)) { Text("إعادة") }
-            }
-            TextButton(onClick = onAddTime, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("+ 5 دقائق") }
+            val total = sessions.filter { session ->
+                val d = java.util.Calendar.getInstance().apply { timeInMillis = session.completedAt }
+                d.get(java.util.Calendar.YEAR) == day.get(java.util.Calendar.YEAR) &&
+                    d.get(java.util.Calendar.DAY_OF_YEAR) == day.get(java.util.Calendar.DAY_OF_YEAR)
+            }.sumOf { it.durationMinutes }
+            day.getDisplayName(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.SHORT, java.util.Locale("ar")) to total
         }
-        GlassCard {
-            Text("إحصائيات الدراسة", color = Muted, fontSize = 13.sp)
-            Text("$totalMinutes دقيقة", color = Gold, fontSize = 27.sp, fontWeight = FontWeight.Bold)
-            Text("إجمالي وقت التركيز المسجل في هذه الجلسة", color = Muted, fontSize = 12.sp)
+    }
+    val maxWeek = (week.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            GlassCard {
+                Text("الدراسة والتركيز", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text("جلسات التركيز والاستراحة", color = Muted, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = mode == "تركيز", onClick = { onMode("تركيز") }, label = { Text("تركيز") })
+                    FilterChip(selected = mode == "استراحة", onClick = { onMode("استراحة") }, label = { Text("استراحة 5 د") })
+                }
+                Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { (seconds.toFloat() / (if (mode == "تركيز") focusDurationMinutes * 60f else 300f)).coerceIn(0f, 1f) },
+                        modifier = Modifier.size(190.dp), strokeWidth = 10.dp, color = Gold,
+                        trackColor = Color(0x22FFFFFF), strokeCap = StrokeCap.Round
+                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("%02d:%02d".format(seconds / 60, seconds % 60), fontSize = 38.sp, fontWeight = FontWeight.Bold)
+                        Text(if (mode == "تركيز") "تركيز" else "راحة", color = Muted, fontSize = 12.sp)
+                    }
+                }
+                if (mode == "تركيز") {
+                    Text("مدة الجلسة", color = Muted, fontSize = 12.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(15, 25, 45, 60).forEach { duration ->
+                            FilterChip(selected = focusDurationMinutes == duration,
+                                onClick = { onPreset(duration) }, label = { Text("$duration د") })
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onToggle, modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
+                        Text(if (running) "إيقاف مؤقت" else "ابدأ")
+                    }
+                    OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f)) { Text("إعادة") }
+                }
+                TextButton(onClick = onAddTime, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("+ 5 دقائق") }
+            }
+        }
+        item {
+            GlassCard {
+                Text("ملخص التركيز اليوم", color = Muted, fontSize = 13.sp)
+                Text("$todayMinutes دقيقة", color = Gold, fontSize = 29.sp, fontWeight = FontWeight.Bold)
+                Text("الإجمالي المسجل: $totalMinutes دقيقة · " + sessions.size + " جلسة", color = Muted, fontSize = 12.sp)
+            }
+        }
+        item {
+            GlassCard {
+                Text("آخر 7 أيام", fontWeight = FontWeight.Bold)
+                Row(Modifier.fillMaxWidth().height(132.dp).padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                    week.forEach { (label, value) ->
+                        Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Bottom) {
+                            Text(if (value > 0) value.toString() else " ", fontSize = 10.sp, color = Muted)
+                            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.BottomCenter) {
+                                Box(Modifier.fillMaxWidth(.72f)
+                                    .height((82f * value / maxWeek).coerceAtLeast(if (value > 0) 5f else 2f).dp)
+                                    .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp))
+                                    .background(if (value > 0) Gold else Color(0x24FFFFFF)))
+                            }
+                            Text(label ?: "—", fontSize = 10.sp, color = Muted, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+        item { Text("سجل الجلسات", fontWeight = FontWeight.Bold, color = Gold) }
+        if (sessions.isEmpty()) {
+            item { Text("لا توجد جلسات مكتملة بعد. ستظهر جلساتك هنا تلقائياً.", color = Muted, fontSize = 13.sp) }
+        } else {
+            items(sessions.sortedByDescending { it.completedAt }.take(30)) { session ->
+                val date = java.text.SimpleDateFormat("dd/MM/yyyy · HH:mm", java.util.Locale("ar"))
+                    .format(java.util.Date(session.completedAt))
+                Surface(color = Glass, shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("جلسة تركيز", fontWeight = FontWeight.SemiBold)
+                            Text(date, color = Muted, fontSize = 11.sp)
+                        }
+                        Text(session.durationMinutes.toString() + " د", color = Gold, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 }
