@@ -81,6 +81,10 @@ class MainActivity : ComponentActivity() {
             sensorSteps = intent.getIntExtra(StepCounterService.EXTRA_TOTAL, 0).coerceIn(0, 100000)
             sensorDelta = intent.getIntExtra(StepCounterService.EXTRA_DELTA, 0).coerceIn(0, 100000)
             sensorRevision++
+            val ack = Intent(this@MainActivity, StepCounterService::class.java)
+                .setAction(StepCounterService.ACTION_ACK)
+                .putExtra(StepCounterService.EXTRA_TOTAL, sensorSteps)
+            startService(ack)
         }
     }
 
