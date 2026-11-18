@@ -261,7 +261,8 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
     val active=buildSet {
         waterEntries.forEach{add(sDate(it.recordedAt))}
         studySessions.forEach{add(sDate(it.completedAt))}
-        sleepSessions.forEach{add(sDate(it.endedAt))}\n        workoutSessions.forEach{add(sDate(it.endedAt))}
+        sleepSessions.forEach{add(sDate(it.endedAt))}
+        workoutSessions.forEach{add(sDate(it.endedAt))}
         if(done>0||steps>0)add(sDate(System.currentTimeMillis()))
     }.size
     val values=mapOf(
