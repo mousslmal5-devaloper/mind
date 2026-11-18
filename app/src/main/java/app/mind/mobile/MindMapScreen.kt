@@ -112,6 +112,19 @@ fun MindMapScreen() {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("الخرائط الذهنية", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            maps.forEachIndexed { index, item ->
+                FilterChip(selected = activeMap == index, onClick = { activeMap = index; selectedId = null },
+                    label = { Text(item.title.ifBlank { "خريطة ${index + 1}" }, maxLines = 1) })
+            }
+            OutlinedButton(onClick = {
+                val rootId = System.currentTimeMillis()
+                maps = maps + MindMapDocument("خريطة جديدة", MapBackgrounds.first(),
+                    listOf(MindMapNode(rootId, "الفكرة الرئيسية", 115f, 110f, 0xFFE8C547L, null)))
+                activeMap = maps.lastIndex
+                selectedId = rootId
+            }) { Text("+") }
+        }
         if (map != null) {
             OutlinedTextField(value = map.title, onValueChange = { value -> updateMap { it.copy(title = value) } },
                 label = { Text("عنوان الخريطة") }, singleLine = true, modifier = Modifier.fillMaxWidth())
