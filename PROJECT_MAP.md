@@ -22,7 +22,7 @@
 - Design fidelity: preserve the HTML's dark radial gradient, ambient moving orbs, translucent bordered cards, gold accent, responsive navigation, Cairo typography and transition timings; implement natively.
 
 ## [ORPHANS & PENDING]
-- Reference HTML (`mind-web (1)(2).html`) is the sole visual/behavioral specification. Confirmed tokens: #0d0d0f background, 900x500px radial gold glow at 85%/-10%, five slow parallax ambient orbs, translucent cards (rgba white .055/.09 border), 22px card corners, Cairo 15px/1.6, gold #e8c547/#d4a942, floating bottom navigation and staggered entrance transitions. Full feature inventory and native parity remain pending.
+- Latest uploaded reference HTML (`mind-web (1)(3).html`) is the sole visual/behavioral specification. Confirmed tokens from source: #0d0d0f background, gold #e8c547/#d4a942, radial glow, slow ambient orbs, translucent bordered cards, Cairo typography, floating bottom navigation and animated transitions. Full feature inventory is recorded below; native parity remains in progress.
 - Validate supplied font family and extract original app icon, logo, and audio assets from the previous Android archive.
 - Inspect and selectively port reusable native modules; exclude old package identity, unsafe signing material and stale placeholders.
 - Confirm Firebase Android package registration and OAuth fingerprints; the previous project's Google OAuth client was reported empty.
@@ -53,3 +53,12 @@
   15. Settings/security: Arabic/English, appearance, goals, notifications/sounds, motion/location permissions, PIN lock and timeout gate, orientation, backup JSON import/export, reset, about/privacy/help/share.
 - Data parity: preserve all source records and timestamps needed for habit completion, hourly water, focus sessions, sleep, step/fitness sessions, food, journal, notes, mind maps, awards, and account backup/sync. Do not substitute demo values for real user data.
 - Acceptance criteria: each source feature has a native screen or widget entry point, persists its source-equivalent data, contributes to the same relevant statistics/achievements, handles empty/error/permission states, and has tests. Charts must be fed by persisted data and retain the source metric labels, units, colors and symbols. No feature may be marked complete solely because a placeholder card exists.
+
+
+## Current implementation checkpoint — 2026-11-18
+- Commit `f4133b7b269bb1656e28a1f347c42340f8f373c1` replaces the initial placeholder-only home shell with interactive Compose screens for dashboard, habit check-ins and habit creation, water intake/goal, study Pomodoro controls, manual fitness step entry, sleep-duration logging, notes text entry, and account/settings navigation. The animated dark/gold atmosphere and glass surfaces remain.
+- This is an initial UI/interaction slice, **not feature parity**. These values currently live in Compose saved state and are not yet backed by Room/DataStore or Firestore; GPS/sensor step tracking, full study charts/mind maps, sleep sessions/alarm, notes attachments/folders/trash, source achievement calculations, nutrition/journal, ambient audio, and complete settings are still pending.
+- The step count control is explicitly manual; it is not represented as a working background pedometer. Do not claim sensor/GPS tracking until implemented and permission-tested.
+- The study timer currently implements the 25-minute focus / 5-minute break controls and a session counter; the reference's full study chart and mind-map system remains pending.
+- CI run 44393910445 was triggered for commit `f4133b7`; its status was pending when this checkpoint was written. Do not use the earlier successful run as evidence that this newer commit builds.
+- Continue with durable local persistence and domain models before claiming data retention; then implement source-specific chart datasets and the remaining reference modules. Keep minSdk 23 / targetSdk 30.
