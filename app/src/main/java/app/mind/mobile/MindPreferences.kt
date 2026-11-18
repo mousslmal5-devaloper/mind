@@ -2,6 +2,7 @@ package app.mind.mobile
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -36,7 +37,8 @@ data class MindSavedState(
     val focusDurationMinutes: Int = 25,
     val studySessions: List<StudySession> = emptyList(),
     val stepEntries: List<StepEntry> = emptyList(),
-    val habitHistory: List<HabitDayRecord> = emptyList()
+    val habitHistory: List<HabitDayRecord> = emptyList(),
+    val stepSensorInitialized: Boolean = false
 )
 
 private object MindPreferenceKeys {
@@ -57,6 +59,7 @@ private object MindPreferenceKeys {
     val activeSleepStartedAt = longPreferencesKey("active_sleep_started_at")
     val stepEntries = stringPreferencesKey("step_entries")
     val habitHistory = stringPreferencesKey("habit_history")
+    val stepSensorInitialized = booleanPreferencesKey("step_sensor_initialized")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -80,7 +83,8 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
         studySessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]"),
         waterEntries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]"),
         stepEntries = decodeStepEntries(preferences[MindPreferenceKeys.stepEntries] ?: "[]"),
-        habitHistory = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]")
+        habitHistory = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]"),
+        stepSensorInitialized = preferences[MindPreferenceKeys.stepSensorInitialized] ?: false
     )
 }
 
@@ -104,6 +108,7 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.waterEntries] = encodeWaterEntries(state.waterEntries)
         preferences[MindPreferenceKeys.stepEntries] = encodeStepEntries(state.stepEntries)
         preferences[MindPreferenceKeys.habitHistory] = encodeHabitHistory(state.habitHistory)
+        preferences[MindPreferenceKeys.stepSensorInitialized] = state.stepSensorInitialized
     }
 }
 
