@@ -344,7 +344,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                 "stats" -> StatisticsScreen(
                                     habits = habits, habitMask = habitMask, water = water, waterGoal = waterGoal,
                                     waterEntries = waterEntries, steps = steps, stepEntries = stepEntries, habitHistory = habitHistory, studySessions = studySessions,
-                                    sleepSessions = sleepSessions
+                                    sleepSessions = sleepSessions, workoutSessions = workoutSessions
                                 )
                                 "awards" -> AwardsScreen(
                                     habits = habits, habitMask = habitMask, waterEntries = waterEntries,
