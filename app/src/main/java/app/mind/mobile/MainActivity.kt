@@ -53,8 +53,8 @@ import kotlinx.coroutines.delay
 private val Gold = Color(0xFFE8C547)
 private val Ink = Color(0xFF0D0D0F)
 private val Muted = Color(0xFFA2A2AB)
-private val Glass = Color(0x12FFFFFF)
-private val GlassBorder = Color(0x20FFFFFF)
+private val Glass = Color(0x0EFFFFFF)
+private val GlassBorder = Color(0x17FFFFFF)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -200,6 +200,14 @@ private fun MindRoot() {
                                 "home" -> Dashboard(
                                     habits = habits, habitMask = habitMask, water = water,
                                     waterGoal = waterGoal, steps = steps, studyMinutes = studyMinutes,
+                                    onToggleHabit = { index -> habitMask = habitMask xor (1 shl index) },
+                                    onWaterAdd = {
+                                        if (water < 40) {
+                                            water += 1
+                                            waterEntries = (waterEntries + WaterEntry(System.currentTimeMillis())).takeLast(20000)
+                                        }
+                                    },
+                                    onWaterRemove = { if (water > 0) water -= 1 },
                                     onOpen = { page = it }
                                 )
                                 "habits" -> HabitsScreen(
@@ -319,7 +327,7 @@ private fun BottomNavigation(page: String, onSelect: (String) -> Unit) {
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
             .clip(RoundedCornerShape(24.dp)).border(1.dp, GlassBorder, RoundedCornerShape(24.dp)),
         containerColor = Color(0xE6151518), contentColor = Color.White,
-        tonalElevation = 0.dp, windowInsets = WindowInsets(0)
+        tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
         NavigationBarItem(page == "home", { onSelect("home") }, { Icon(Icons.Rounded.Home, null) }, label = { Text("الرئيسية") })
         NavigationBarItem(page == "habits", { onSelect("habits") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("العادات") })
@@ -331,11 +339,13 @@ private fun BottomNavigation(page: String, onSelect: (String) -> Unit) {
 @Composable
 private fun Dashboard(
     habits: List<String>, habitMask: Int, water: Int, waterGoal: Int, steps: Int,
-    studyMinutes: Int, onOpen: (String) -> Unit
+    studyMinutes: Int, onToggleHabit: (Int) -> Unit,
+    onWaterAdd: () -> Unit, onWaterRemove: () -> Unit, onOpen: (String) -> Unit
 ) {
     val done = Integer.bitCount(habitMask)
     val progress = if (habits.isEmpty()) 0f else (done.toFloat() / habits.size).coerceIn(0f, 1f)
-    val quote = "الاستمرارية أهم من الكمال"
+    val quotes = listOf("الاستمرارية أهم من الكمال", "رحلة الألف ميل تبدأ بخطوة", "افعل اليوم ما يشكرك عليه غدك", "خطوة صغيرة كل يوم تصنع فرقاً كبيراً")
+    val quote = quotes[java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR) % quotes.size]
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 700.dp
         LazyColumn(
@@ -357,8 +367,8 @@ private fun Dashboard(
                             QuickAccessGrid(Modifier.fillMaxWidth(), onOpen)
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            WaterSummaryCard(water, waterGoal, onAdd = { onOpen("water") }, onOpen = { onOpen("water") })
-                            TodayHabitsCard(habits, habitMask)
+                            WaterSummaryCard(water, waterGoal, onAdd = onWaterAdd, onRemove = onWaterRemove)
+                            TodayHabitsCard(habits, habitMask, onToggleHabit)
                             QuoteCard(quote)
                         }
                     }
@@ -437,15 +447,18 @@ private fun QuickAccessCard(
 }
 
 @Composable
-private fun WaterSummaryCard(water: Int, goal: Int, onAdd: () -> Unit, onOpen: () -> Unit) {
+private fun WaterSummaryCard(water: Int, goal: Int, onAdd: () -> Unit, onRemove: () -> Unit) {
     GlassCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Rounded.WaterDrop, contentDescription = null, tint = Color(0xFF5AA9FF), modifier = Modifier.size(20.dp))
             Text("الماء", fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
             Text("$water / $goal أكواب", color = Muted, fontSize = 12.sp)
-            TextButton(onClick = onOpen, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
-                Text("التفاصيل", color = Gold, fontSize = 12.sp)
+            TextButton(onClick = onRemove, enabled = water > 0, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
+                Text("−", color = Gold, fontSize = 18.sp)
+            }
+            TextButton(onClick = onAdd, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
+                Text("+", color = Gold, fontSize = 18.sp)
             }
         }
         LinearProgressIndicator(
@@ -458,7 +471,7 @@ private fun WaterSummaryCard(water: Int, goal: Int, onAdd: () -> Unit, onOpen: (
 }
 
 @Composable
-private fun TodayHabitsCard(habits: List<String>, habitMask: Int) {
+private fun TodayHabitsCard(habits: List<String>, habitMask: Int, onToggle: (Int) -> Unit) {
     GlassCard {
         Text("عادات اليوم", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         if (habits.isEmpty()) {
@@ -466,7 +479,7 @@ private fun TodayHabitsCard(habits: List<String>, habitMask: Int) {
         } else {
             habits.take(3).forEachIndexed { index, habit ->
                 val checked = habitMask and (1 shl index) != 0
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onToggle(index) }) {
                     Icon(
                         if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                         contentDescription = null,
