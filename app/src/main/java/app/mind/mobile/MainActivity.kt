@@ -100,16 +100,28 @@ private fun MindRoot() {
 @Composable
 private fun ReferenceAtmosphere() {
     val transition = rememberInfiniteTransition(label = "ambient-orbs")
-    val x by transition.animateFloat(-24f, 28f, infiniteRepeatable(tween(9000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-x")
-    val y by transition.animateFloat(18f, -26f, infiniteRepeatable(tween(11000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-y")
+    val x1 by transition.animateFloat(-28f, 38f, infiniteRepeatable(tween(30000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-1-x")
+    val y1 by transition.animateFloat(-20f, 34f, infiniteRepeatable(tween(27000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-1-y")
+    val x2 by transition.animateFloat(32f, -36f, infiniteRepeatable(tween(36000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-2-x")
+    val y2 by transition.animateFloat(24f, -30f, infiniteRepeatable(tween(33000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-2-y")
+    val x3 by transition.animateFloat(-18f, 26f, infiniteRepeatable(tween(33000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-3-x")
+    val y3 by transition.animateFloat(30f, -24f, infiniteRepeatable(tween(39000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-3-y")
     Box(Modifier.fillMaxSize().background(
-        Brush.radialGradient(listOf(Color(0x2EE8C547), Color.Transparent), radius = 900f,
-            center = androidx.compose.ui.geometry.Offset(900f, 0f))
+        Brush.radialGradient(
+            colors = listOf(Color(0x23E8C547), Color.Transparent),
+            center = androidx.compose.ui.geometry.Offset(900f, 0f), radius = 900f
+        )
     ))
-    Box(Modifier.offset(x.dp, y.dp).size(240.dp).align(Alignment.TopEnd).blur(65.dp)
-        .background(Color(0x1FE8C547), RoundedCornerShape(120.dp)))
-    Box(Modifier.offset((-30).dp, 260.dp).size(190.dp).align(Alignment.BottomStart).blur(70.dp)
-        .background(Color(0x122F79A8), RoundedCornerShape(100.dp)))
+    Box(Modifier.offset(x1.dp, y1.dp).size(300.dp).align(Alignment.TopStart).blur(72.dp)
+        .background(Color(0x1FE8C547), RoundedCornerShape(180.dp)))
+    Box(Modifier.offset(x2.dp, y2.dp).size(270.dp).align(Alignment.TopEnd).blur(70.dp)
+        .background(Color(0x1CE8C547), RoundedCornerShape(160.dp)))
+    Box(Modifier.offset(x3.dp, y3.dp).size(250.dp).align(Alignment.CenterStart).blur(76.dp)
+        .background(Color(0x14E8C547), RoundedCornerShape(150.dp)))
+    Box(Modifier.offset((-32).dp, 70.dp).size(320.dp).align(Alignment.BottomEnd).blur(82.dp)
+        .background(Color(0x18E8C547), RoundedCornerShape(180.dp)))
+    Box(Modifier.offset(24.dp, (-36).dp).size(210.dp).align(Alignment.BottomStart).blur(70.dp)
+        .background(Color(0x122F79A8), RoundedCornerShape(120.dp)))
 }
 
 @Composable
