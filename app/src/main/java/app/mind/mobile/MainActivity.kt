@@ -376,8 +376,8 @@ private fun Dashboard(
             } else {
                 item { DailyProgressCard(progress, done, habits.size) }
                 item { QuickAccessGrid(Modifier.fillMaxWidth(), onOpen) }
-                item { WaterSummaryCard(water, waterGoal, onAdd = { onOpen("water") }, onOpen = { onOpen("water") }) }
-                item { TodayHabitsCard(habits, habitMask) }
+                item { WaterSummaryCard(water, waterGoal, onAdd = onWaterAdd, onRemove = onWaterRemove) }
+                item { TodayHabitsCard(habits, habitMask, onToggleHabit) }
                 item { QuoteCard(quote) }
             }
         }
@@ -398,7 +398,7 @@ private fun DailyProgressCard(progress: Float, done: Int, total: Int) {
                     strokeWidth = 9.dp, color = Ink, trackColor = Ink.copy(alpha = .15f),
                     strokeCap = StrokeCap.Round
                 )
-                Text("\${(progress * 100).toInt()}%", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text("${(progress * 100).toInt()}%", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             }
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text("إنجاز اليوم", color = Ink.copy(alpha = .75f), fontSize = 13.sp)
