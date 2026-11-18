@@ -105,6 +105,7 @@ class StepCounterService : Service(), SensorEventListener {
         const val EXTRA_SUPPORTED = "supported"
         const val EXTRA_TOTAL = "total"
         const val EXTRA_DELTA = "delta"
+        const val EXTRA_AT = "at"
         private const val PREFS = "mind_step_sensor"
         private const val KEY_DAY = "day"
         private const val KEY_RAW = "raw_total"
