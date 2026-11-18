@@ -61,7 +61,7 @@ private fun decodeMindMaps(raw: String): List<MindMapDocument> = runCatching {
                     val n = ns.optJSONObject(j) ?: continue
                     val parent = n.opt("parentId")
                     add(MindMapNode(n.optLong("id"), n.optString("text"), n.optDouble("x").toFloat(),
-                        n.optDouble("y").toFloat(), n.optLong("color", MapGold.value), if (parent == JSONObject.NULL) null else (parent as? Number)?.toLong()))
+                        n.optDouble("y").toFloat(), n.optLong("color", 0xFFE8C547L), if (parent == JSONObject.NULL) null else (parent as? Number)?.toLong()))
                 }
             }
             add(MindMapDocument(m.optString("title", "خريطة ذهنية"), m.optLong("background", MapBackgrounds.first()), nodes))
@@ -87,7 +87,7 @@ fun MindMapScreen() {
     LaunchedEffect(Unit) {
         val raw = runCatching { context.mindMapDataStore.data.first()[MindMapKey] ?: "[]" }.getOrDefault("[]")
         maps = decodeMindMaps(raw).ifEmpty { listOf(MindMapDocument("خريطة جديدة", MapBackgrounds.first(),
-            listOf(MindMapNode(System.currentTimeMillis(), "الفكرة الرئيسية", 115f, 110f, MapGold.value, null)))) }
+            listOf(MindMapNode(System.currentTimeMillis(), "الفكرة الرئيسية", 115f, 110f, 0xFFE8C547L, null)))) }
         loaded = true
     }
     LaunchedEffect(maps, loaded) {
