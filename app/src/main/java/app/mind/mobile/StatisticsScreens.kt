@@ -143,7 +143,7 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
             }
         }
         if(period!="day") {
-            item { HabitWeekGrid(habits,habitMask,labels,habitHistory) }
+            item { HabitWeekGrid(habits,habitMask,days,labels,habitHistory) }
             item { SleepWeekGrid(sleepSessions,days,labels) }
         }
         item { Text("السعرات تقديرية من الخطوات. منحنى العادات يعرض الأيام المسجلة فقط، ولا تتوفر بيانات ساعة بساعة للعادات بعد.",color=SM,fontSize=10.sp) }
@@ -181,18 +181,22 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
 }
 @Composable private fun FootStat(a:String,b:String){Column(horizontalAlignment=Alignment.CenterHorizontally){Text(a,color=SM,fontSize=9.sp);Text(b,fontSize=11.sp,fontWeight=FontWeight.Bold)}}
 
-@Composable private fun HabitWeekGrid(habits:List<String>,mask:Int,labels:List<String>) {
+@Composable private fun HabitWeekGrid(habits:List<String>,mask:Int,days:List<String>,labels:List<String>,history:List<HabitDayRecord>) {
+    val records=history.associateBy { it.dateKey }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
-        Text("شبكة العادات الأسبوعية",fontSize=15.sp,fontWeight=FontWeight.Bold)
+        Text("شبكة العادات",fontSize=15.sp,fontWeight=FontWeight.Bold)
         if(habits.isEmpty()) Text("أضف عاداتك لعرض الشبكة",color=SM,fontSize=12.sp)
         habits.forEachIndexed { i,name -> Row(verticalAlignment=Alignment.CenterVertically) {
             Text(name,Modifier.weight(1.2f),fontSize=10.sp,maxLines=1)
-            labels.forEachIndexed { d,_ -> val today=d==labels.lastIndex;val done=today&&(mask and (1 shl i)!=0)
-                Box(Modifier.weight(.35f).padding(horizontal=2.dp).height(19.dp).clip(RoundedCornerShape(5.dp)).background(if(done) SGreen.copy(alpha=.8f) else if(today) SG.copy(alpha=.16f) else Color.White.copy(alpha=.04f)))
+            days.forEachIndexed { d,key ->
+                val record=records[key]
+                val done=if(d==days.lastIndex) (mask and (1 shl i))!=0 else record!=null && i<record.habitCount && (record.completedMask and (1 shl i))!=0
+                val known=d==days.lastIndex || record!=null
+                Box(Modifier.weight(.35f).padding(horizontal=2.dp).height(19.dp).clip(RoundedCornerShape(5.dp)).background(if(done) SGreen.copy(alpha=.8f) else if(known) Color.White.copy(alpha=.07f) else Color.White.copy(alpha=.025f)))
             }
         } }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){labels.forEach{Text(it.take(2),color=SM,fontSize=9.sp)}}
-        Text("الأيام السابقة غير مسجلة بعد، ولا تُحسب كعادات فائتة.",color=SM,fontSize=10.sp)
+        Text("الأيام غير المسجلة تبقى فارغة ولا تُحسب كإخفاق.",color=SM,fontSize=10.sp)
     }
 }
 @Composable private fun SleepWeekGrid(sessions:List<SleepSession>,days:List<String>,labels:List<String>) {
