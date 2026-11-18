@@ -106,22 +106,26 @@ private fun ReferenceAtmosphere() {
     val y2 by transition.animateFloat(24f, -30f, infiniteRepeatable(tween(33000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-2-y")
     val x3 by transition.animateFloat(-18f, 26f, infiniteRepeatable(tween(33000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-3-x")
     val y3 by transition.animateFloat(30f, -24f, infiniteRepeatable(tween(39000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orb-3-y")
-    Box(Modifier.fillMaxSize().background(
-        Brush.radialGradient(
-            colors = listOf(Color(0x23E8C547), Color.Transparent),
-            center = androidx.compose.ui.geometry.Offset(900f, 0f), radius = 900f
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.radialGradient(
+                colors = listOf(Color(0x23E8C547), Color.Transparent),
+                center = androidx.compose.ui.geometry.Offset(900f, 0f),
+                radius = 900f
+            )
         )
-    ))
-    Box(Modifier.offset(x1.dp, y1.dp).size(300.dp).align(Alignment.TopStart).blur(72.dp)
-        .background(Color(0x1FE8C547), RoundedCornerShape(180.dp)))
-    Box(Modifier.offset(x2.dp, y2.dp).size(270.dp).align(Alignment.TopEnd).blur(70.dp)
-        .background(Color(0x1CE8C547), RoundedCornerShape(160.dp)))
-    Box(Modifier.offset(x3.dp, y3.dp).size(250.dp).align(Alignment.CenterStart).blur(76.dp)
-        .background(Color(0x14E8C547), RoundedCornerShape(150.dp)))
-    Box(Modifier.offset((-32).dp, 70.dp).size(320.dp).align(Alignment.BottomEnd).blur(82.dp)
-        .background(Color(0x18E8C547), RoundedCornerShape(180.dp)))
-    Box(Modifier.offset(24.dp, (-36).dp).size(210.dp).align(Alignment.BottomStart).blur(70.dp)
-        .background(Color(0x122F79A8), RoundedCornerShape(120.dp)))
+    ) {
+        Box(Modifier.offset(x1.dp, y1.dp).size(300.dp).align(Alignment.TopStart).blur(72.dp)
+            .background(Color(0x1FE8C547), RoundedCornerShape(180.dp)))
+        Box(Modifier.offset(x2.dp, y2.dp).size(270.dp).align(Alignment.TopEnd).blur(70.dp)
+            .background(Color(0x1CE8C547), RoundedCornerShape(160.dp)))
+        Box(Modifier.offset(x3.dp, y3.dp).size(250.dp).align(Alignment.CenterStart).blur(76.dp)
+            .background(Color(0x14E8C547), RoundedCornerShape(150.dp)))
+        Box(Modifier.offset((-32).dp, 70.dp).size(320.dp).align(Alignment.BottomEnd).blur(82.dp)
+            .background(Color(0x18E8C547), RoundedCornerShape(180.dp)))
+        Box(Modifier.offset(24.dp, (-36).dp).size(210.dp).align(Alignment.BottomStart).blur(70.dp)
+            .background(Color(0x122F79A8), RoundedCornerShape(120.dp)))
+    }
 }
 
 @Composable
