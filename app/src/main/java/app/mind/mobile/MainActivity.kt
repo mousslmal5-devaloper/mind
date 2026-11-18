@@ -904,16 +904,30 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
 @Composable
 private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStartedAt: Long, onStart: () -> Unit, onWake: () -> Unit, onDelete: (SleepSession) -> Unit) {
     val active = activeStartedAt > 0L
+    var clockNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(activeStartedAt) {
+        if (active) {
+            clockNow = System.currentTimeMillis()
+            while (true) {
+                delay(30_000L)
+                clockNow = System.currentTimeMillis()
+            }
+        }
+    }
+    val activeMinutes = if (active) ((clockNow - activeStartedAt).coerceAtLeast(0L) / 60_000L) else 0L
     val latest = sessions.maxByOrNull { it.endedAt }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             GlassCard {
                 Text("النوم", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Text("سجّل بداية نومك واستيقاظك لاحتساب المدة تلقائياً", color = Muted, fontSize = 13.sp)
-                Text(if (active) "بدأت جلسة النوم" else "%.1f ساعة".format(hours), color = Gold, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                Text(
+                    if (active) "%d ساعة %02d دقيقة".format(activeMinutes / 60L, activeMinutes % 60L) else "%.1f ساعة".format(hours),
+                    color = Gold, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp)
+                )
                 if (active) {
                     val started = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(activeStartedAt))
-                    Text("وقت البداية: $started", color = Muted, fontSize = 12.sp)
+                    Text("وقت البداية: $started · مدة الجلسة الحالية", color = Muted, fontSize = 12.sp)
                     Button(onClick = onWake, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("تسجيل الاستيقاظ") }
                 } else {
                     Button(onClick = onStart, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("بدء النوم") }
