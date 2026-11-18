@@ -55,7 +55,7 @@ private fun sDays(count: Int = 7): List<String> {
 private fun List<Float>.meanKnown(): Float { val v=filterNot { it.isNaN() }; return if(v.isEmpty()) 0f else v.average().toFloat() }
 
 @Composable
-fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,waterEntries:List<WaterEntry>,steps:Int,stepEntries:List<StepEntry>,habitHistory:List<HabitDayRecord>,studySessions:List<StudySession>,sleepSessions:List<SleepSession>) {
+fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,waterEntries:List<WaterEntry>,steps:Int,stepEntries:List<StepEntry>,habitHistory:List<HabitDayRecord>,studySessions:List<StudySession>,sleepSessions:List<SleepSession>,workoutSessions:List<WorkoutSession>) {
     var period by rememberSaveable { mutableStateOf("week") }
     val days=remember(period) { sDays(if (period == "month") 30 else 7) }; val today=days.last()
     val start=remember { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0) }.timeInMillis }
@@ -63,6 +63,9 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
     val waterWeek=days.map { k -> (if(k==today) maxOf(water,waterEntries.count { sDate(it.recordedAt)==k }) else waterEntries.count { sDate(it.recordedAt)==k }).toFloat() }
     val studyWeek=days.map { k -> studySessions.filter { sDate(it.completedAt)==k }.sumOf { it.durationMinutes }.toFloat() }
     val sleepWeek=days.map { k -> sleepSessions.filter { sDate(it.endedAt)==k }.sumOf { it.durationMinutes }/60f }
+    val periodWorkouts=workoutSessions.filter { sDate(it.endedAt)>=days.first() && sDate(it.endedAt)<=today }
+    val workoutDistance=periodWorkouts.sumOf { it.distanceMeters.toDouble() }.toFloat()
+    val workoutMinutes=periodWorkouts.sumOf { it.durationSeconds }/60L
     val habitPct=if(habits.isEmpty()) 0f else Integer.bitCount(habitMask).coerceAtMost(habits.size)*100f/habits.size
     val waterHour=(0..23).map { h -> waterEntries.count { it.recordedAt>=start && sHour(it.recordedAt)==h }.toFloat() }
     val studyHour=(0..23).map { h -> studySessions.filter { it.completedAt>=start && sHour(it.completedAt)==h }.sumOf { it.durationMinutes }.toFloat() }
@@ -125,6 +128,23 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
                     rings.chunked(columns).forEach { group -> Row(horizontalArrangement=Arrangement.spacedBy(9.dp)) {
                         group.forEach { RingTile(it,Modifier.weight(1f)) }; repeat(columns-group.size){Spacer(Modifier.weight(1f))}
                     } }
+                }
+            }
+        }
+        item {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Text("النشاط الرياضي المسجل",fontSize=15.sp,fontWeight=FontWeight.Bold)
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Column { Text("الجلسات",color=SM,fontSize=10.sp);Text(periodWorkouts.size.toString(),color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+                    Column { Text("المسافة",color=SM,fontSize=10.sp);Text(if(workoutDistance>=1000f) String.format(Locale.US,"%.2f كم",workoutDistance/1000f) else String.format(Locale.US,"%.0f م",workoutDistance),color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+                    Column { Text("المدة",color=SM,fontSize=10.sp);Text(workoutMinutes.toString()+" د",color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+                }
+                if(periodWorkouts.isEmpty()) Text("لا توجد جلسات رياضية مسجلة في هذه الفترة.",color=SM,fontSize=11.sp)
+                else periodWorkouts.sortedByDescending { it.endedAt }.take(3).forEach { session ->
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                        Text(session.type,color=Color.White,fontSize=12.sp)
+                        Text(if(session.distanceMeters>=1000f) String.format(Locale.US,"%.2f كم",session.distanceKm) else String.format(Locale.US,"%.0f م",session.distanceMeters),color=SM,fontSize=12.sp)
+                    }
                 }
             }
         }
