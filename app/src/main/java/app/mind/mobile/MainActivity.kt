@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val Gold = Color(0xFFE8C547)
 private val Ink = Color(0xFF0D0D0F)
@@ -152,6 +153,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var studySessions by remember { mutableStateOf<List<StudySession>>(emptyList()) }
     var workoutSessions by remember { mutableStateOf<List<WorkoutSession>>(emptyList()) }
     val context = LocalContext.current
+    val appScope = rememberCoroutineScope()
     var stateLoaded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -363,9 +365,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
                                 )
                                 "mindmap" -> MindMapScreen()
-                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions) { session ->
-                                    workoutSessions = (workoutSessions + session).takeLast(2000)
-                                }
+                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, onSessionCompleted = { session ->\n                                    workoutSessions = (workoutSessions.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000)\n                                }, onRefreshSessions = {\n                                    appScope.launch { workoutSessions = loadMindSavedState(context).workoutSessions }\n                                })
                                 "sleep" -> SleepScreen(
                                     hours = sleepHours, sessions = sleepSessions,
                                     activeStartedAt = activeSleepStartedAt,
@@ -888,7 +888,7 @@ private fun StudyScreen(
 }
 
 @Composable
-private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onSessionCompleted: (WorkoutSession) -> Unit) {
+private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onSessionCompleted: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
     val context = LocalContext.current
     var workoutType by rememberSaveable { mutableStateOf("جري") }
     var tracking by rememberSaveable { mutableStateOf(false) }
@@ -929,6 +929,8 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
         }
         val filter = IntentFilter(GpsWorkoutService.ACTION_UPDATE)
         context.registerReceiver(receiver, filter)
+        onRefreshSessions()
+        context.startService(Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_STATUS))
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
     LaunchedEffect(tracking) {
