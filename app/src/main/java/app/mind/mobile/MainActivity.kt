@@ -26,6 +26,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.DirectionsRun
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WaterDrop
@@ -180,8 +184,8 @@ private fun MindRoot() {
                         }
                         when (target) {
                             "home" -> Dashboard(
-                                habitsDone = Integer.bitCount(habitMask),
-                                habitsTotal = habits.size,
+                                habits = habits,
+                                habitMask = habitMask,
                                 water = water,
                                 waterGoal = waterGoal,
                                 steps = steps,
@@ -256,58 +260,163 @@ private fun MindRoot() {
 
 @Composable
 private fun Dashboard(
-    habitsDone: Int, habitsTotal: Int, water: Int, waterGoal: Int, steps: Int,
+    habits: List<String>, habitMask: Int, water: Int, waterGoal: Int, steps: Int,
     studyMinutes: Int, onOpen: (String) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Text("MIND", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp)
-            Text("مساحة ليوم أكثر توازناً", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
-            Text("عقلك، وقتك، حياتك.", color = Muted, modifier = Modifier.padding(top = 4.dp))
-        }
-        item {
-            GlassCard {
-                Text("ملخص اليوم", color = Muted, fontSize = 13.sp)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("${if (habitsTotal == 0) 0 else habitsDone * 100 / habitsTotal}%", fontSize = 31.sp, fontWeight = FontWeight.Bold, color = Gold)
-                        Text("إنجاز العادات", color = Muted, fontSize = 12.sp)
-                    }
-                    MiniStat("الماء", "$water / $waterGoal", "أكواب")
-                    MiniStat("الخطوات", steps.toString(), "خطوة")
+    val done = Integer.bitCount(habitMask)
+    val progress = if (habits.isEmpty()) 0f else (done.toFloat() / habits.size).coerceIn(0f, 1f)
+    val quote = "الاستمرارية أهم من الكمال"
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 700.dp
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 112.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(bottom = 2.dp)) {
+                    Text("أهلاً بك في MIND", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 35.sp)
+                    Text("عقلك، وقتك، حياتك", color = Muted, fontSize = 14.sp)
                 }
-                LinearProgressIndicator(
-                    progress = { if (habitsTotal == 0) 0f else habitsDone.toFloat() / habitsTotal },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(5.dp).clip(CircleShape),
-                    color = Gold, trackColor = Color(0x28FFFFFF)
+            }
+            if (wide) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
+                        Column(Modifier.weight(1.1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            DailyProgressCard(progress, done, habits.size)
+                            QuickAccessGrid(Modifier.fillMaxWidth(), onOpen)
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            WaterSummaryCard(water, waterGoal, onAdd = { onOpen("water") }, onOpen = { onOpen("water") })
+                            TodayHabitsCard(habits, habitMask)
+                            QuoteCard(quote)
+                        }
+                    }
+                }
+            } else {
+                item { DailyProgressCard(progress, done, habits.size) }
+                item { QuickAccessGrid(Modifier.fillMaxWidth(), onOpen) }
+                item { WaterSummaryCard(water, waterGoal, onAdd = { onOpen("water") }, onOpen = { onOpen("water") }) }
+                item { TodayHabitsCard(habits, habitMask) }
+                item { QuoteCard(quote) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyProgressCard(progress: Float, done: Int, total: Int) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.Transparent, shape = RoundedCornerShape(22.dp)) {
+        Row(
+            Modifier.background(Brush.linearGradient(listOf(Gold, Color(0xFFD4A942)))).padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress }, modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 9.dp, color = Ink, trackColor = Ink.copy(alpha = .15f),
+                    strokeCap = StrokeCap.Round
                 )
+                Text("\${(progress * 100).toInt()}%", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("إنجاز اليوم", color = Ink.copy(alpha = .75f), fontSize = 13.sp)
+                Text("$done من $total", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 38.sp)
+                Text("عادات مكتملة", color = Ink.copy(alpha = .78f), fontSize = 12.sp)
             }
         }
-        item { Text("مساحتك", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ModuleCard("العادات", "التتبع اليومي", "habits", Modifier.weight(1f), onOpen)
-                ModuleCard("الماء", "الهدف اليومي", "water", Modifier.weight(1f), onOpen)
+    }
+}
+
+@Composable
+private fun QuickAccessGrid(modifier: Modifier, onOpen: (String) -> Unit) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            QuickAccessCard("العادات", "تتبع يومك", "habits", Icons.Rounded.CheckCircle, Modifier.weight(1f), onOpen)
+            QuickAccessCard("النوم", "راحة أفضل", "sleep", Icons.Rounded.Bedtime, Modifier.weight(1f), onOpen)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            QuickAccessCard("الدراسة", "جلسات التركيز", "study", Icons.Rounded.School, Modifier.weight(1f), onOpen)
+            QuickAccessCard("اللياقة", "الجري والحركة", "fitness", Icons.Rounded.DirectionsRun, Modifier.weight(1f), onOpen)
+        }
+    }
+}
+
+@Composable
+private fun QuickAccessCard(
+    title: String, subtitle: String, route: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier, onOpen: (String) -> Unit
+) {
+    Surface(
+        onClick = { onOpen(route) }, modifier = modifier,
+        color = Glass, shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder),
+        tonalElevation = 0.dp
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Box(
+                Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Gold.copy(alpha = .14f)),
+                contentAlignment = Alignment.Center
+            ) { Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(23.dp)) }
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(subtitle, color = Muted, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun WaterSummaryCard(water: Int, goal: Int, onAdd: () -> Unit, onOpen: () -> Unit) {
+    GlassCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Rounded.WaterDrop, contentDescription = null, tint = Color(0xFF5AA9FF), modifier = Modifier.size(20.dp))
+            Text("الماء", fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            Text("$water / $goal أكواب", color = Muted, fontSize = 12.sp)
+            TextButton(onClick = onOpen, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+                Text("التفاصيل", color = Gold, fontSize = 12.sp)
             }
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ModuleCard("الدراسة والتركيز", "$studyMinutes دقيقة", "study", Modifier.weight(1f), onOpen)
-                ModuleCard("الجري واللياقة", "$steps خطوة", "fitness", Modifier.weight(1f), onOpen)
+        LinearProgressIndicator(
+            progress = { (water.toFloat() / goal.coerceAtLeast(1)).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+            color = Color(0xFF5AA9FF), trackColor = Color(0x225AA9FF)
+        )
+        Text("تقدمك نحو هدفك اليومي", color = Muted, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun TodayHabitsCard(habits: List<String>, habitMask: Int) {
+    GlassCard {
+        Text("عادات اليوم", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        if (habits.isEmpty()) {
+            Text("لا توجد عادات بعد — أضف أولى عاداتك", color = Muted, fontSize = 12.sp)
+        } else {
+            habits.take(3).forEachIndexed { index, habit ->
+                val checked = habitMask and (1 shl index) != 0
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Icon(
+                        if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                        contentDescription = null,
+                        tint = if (checked) Color(0xFF5BD68A) else Muted,
+                        modifier = Modifier.size(19.dp)
+                    )
+                    Text(habit, modifier = Modifier.weight(1f).padding(start = 10.dp), fontSize = 13.sp,
+                        color = if (checked) Muted else Color(0xFFF4F4F6))
+                    Text(if (checked) "تم" else "اليوم", color = Muted, fontSize = 10.sp)
+                }
             }
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ModuleCard("النوم", "سجل ساعاتك", "sleep", Modifier.weight(1f), onOpen)
-                ModuleCard("الملاحظات", "مساحة الكتابة", "notes", Modifier.weight(1f), onOpen)
-            }
-        }
-        item { ModuleCard("الحساب والمزامنة", "إدارة حساب MIND", "auth", Modifier.fillMaxWidth(), onOpen) }
+    }
+}
+
+@Composable
+private fun QuoteCard(quote: String) {
+    GlassCard {
+        Text("✦", color = Gold, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(quote, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 25.sp)
     }
 }
 
