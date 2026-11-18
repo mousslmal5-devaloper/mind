@@ -198,12 +198,14 @@ private fun MindRoot() {
                                 mode = focusMode, seconds = focusSeconds, running = focusRunning,
                                 totalMinutes = studyMinutes, focusDurationMinutes = focusDurationMinutes,
                                 sessions = studySessions,
+                                onOpenMindMap = { page = "mindmap" },
                                 onMode = { focusMode = it; focusRunning = false; focusSeconds = if (it == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
                                 onPreset = { minutes -> focusRunning = false; focusDurationMinutes = minutes; if (focusMode == "تركيز") focusSeconds = minutes * 60 },
                                 onToggle = { focusRunning = !focusRunning && focusSeconds > 0 },
                                 onReset = { focusRunning = false; focusSeconds = if (focusMode == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
                                 onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
                             )
+                            "mindmap" -> MindMapScreen()
                             "fitness" -> FitnessScreen(steps, { steps = (steps + 500).coerceAtMost(100000) },
                                 { steps = (steps - 500).coerceAtLeast(0) })
                             "sleep" -> SleepScreen(sleepHours, { sleepHours = it })
@@ -384,6 +386,7 @@ private fun WaterScreen(water: Int, goal: Int, add: () -> Unit, remove: () -> Un
 private fun StudyScreen(
     mode: String, seconds: Int, running: Boolean, totalMinutes: Int,
     focusDurationMinutes: Int, sessions: List<StudySession>,
+    onOpenMindMap: () -> Unit,
     onMode: (String) -> Unit, onPreset: (Int) -> Unit,
     onToggle: () -> Unit, onReset: () -> Unit, onAddTime: () -> Unit
 ) {
@@ -417,6 +420,7 @@ private fun StudyScreen(
             GlassCard {
                 Text("الدراسة والتركيز", fontSize = 23.sp, fontWeight = FontWeight.Bold)
                 Text("جلسات التركيز والاستراحة", color = Muted, fontSize = 13.sp)
+                OutlinedButton(onClick = onOpenMindMap, modifier = Modifier.fillMaxWidth()) { Text("فتح الخرائط الذهنية") }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = mode == "تركيز", onClick = { onMode("تركيز") }, label = { Text("تركيز") })
                     FilterChip(selected = mode == "استراحة", onClick = { onMode("استراحة") }, label = { Text("استراحة 5 د") })
