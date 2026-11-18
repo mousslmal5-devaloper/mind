@@ -84,8 +84,32 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                         }
                         task.addOnCompleteListener { result ->
                             busy = false
-                            if (result.isSuccessful) onSignedIn()
-                            else message = when (result.exception) {
+                            if (result.isSuccessful) {
+                                val user = result.result?.user
+                                if (createAccount) {
+                                    user?.sendEmailVerification()?.addOnCompleteListener { verification ->
+                                        busy = false
+                                        message = if (verification.isSuccessful) {
+                                            "تم إنشاء الحساب. أرسلنا رابط تأكيد إلى بريدك الإلكتروني."
+                                        } else {
+                                            "تم إنشاء الحساب، لكن تعذر إرسال رسالة التأكيد. حاول تسجيل الدخول لاحقاً."
+                                        }
+                                    } ?: run {
+                                        busy = false
+                                        message = "تم إنشاء الحساب، لكن تعذر بدء تأكيد البريد."
+                                    }
+                                } else if (user?.isEmailVerified == true) {
+                                    onSignedIn()
+                                } else {
+                                    user?.sendEmailVerification()?.addOnCompleteListener {
+                                        busy = false
+                                        message = "يجب تأكيد بريدك الإلكتروني قبل المتابعة. أرسلنا رابط التأكيد مجدداً."
+                                    } ?: run {
+                                        busy = false
+                                        message = "يجب تأكيد بريدك الإلكتروني قبل المتابعة."
+                                    }
+                                }
+                            } else message = when (result.exception) {
                                 is com.google.firebase.auth.FirebaseAuthInvalidCredentialsException -> "البريد أو كلمة المرور غير صحيحة."
                                 is com.google.firebase.auth.FirebaseAuthUserCollisionException -> "هذا البريد مسجل بالفعل."
                                 is com.google.firebase.auth.FirebaseAuthWeakPasswordException -> "اختر كلمة مرور أقوى."
