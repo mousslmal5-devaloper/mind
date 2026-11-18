@@ -1,6 +1,13 @@
 package app.mind.mobile
 
 import android.os.Bundle
+import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -62,21 +69,67 @@ private val CairoFamily = androidx.compose.ui.text.font.FontFamily(
 )
 
 class MainActivity : ComponentActivity() {
+    var sensorSteps by mutableIntStateOf(0)
+    var sensorSupported by mutableStateOf(false)
+    var sensorDelta by mutableIntStateOf(0)
+    var sensorRevision by mutableIntStateOf(0)
+    private var receiverRegistered = false
+    private val stepReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != StepCounterService.ACTION_STEP_UPDATE) return
+            sensorSupported = intent.getBooleanExtra(StepCounterService.EXTRA_SUPPORTED, false)
+            sensorSteps = intent.getIntExtra(StepCounterService.EXTRA_TOTAL, 0).coerceIn(0, 100000)
+            sensorDelta = intent.getIntExtra(StepCounterService.EXTRA_DELTA, 0).coerceIn(0, 100000)
+            sensorRevision++
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        setContent { MindRoot() }
+        setContent { MindRoot(sensorSteps, sensorSupported, sensorDelta, sensorRevision) }
     }
+
+    override fun onStart() {
+        super.onStart()
+        if (!receiverRegistered) {
+            registerReceiver(stepReceiver, IntentFilter(StepCounterService.ACTION_STEP_UPDATE))
+            receiverRegistered = true
+        }
+        startStepCounterWhenAllowed()
+    }
+
+    override fun onStop() {
+        if (receiverRegistered) { unregisterReceiver(stepReceiver); receiverRegistered = false }
+        super.onStop()
+    }
+
+    private fun startStepCounterWhenAllowed() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.ACTIVITY_RECOGNITION), REQUEST_ACTIVITY_RECOGNITION)
+            return
+        }
+        val serviceIntent = Intent(this, StepCounterService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent) else startService(serviceIntent)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_ACTIVITY_RECOGNITION && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startStepCounterWhenAllowed()
+    }
+
+    companion object { private const val REQUEST_ACTIVITY_RECOGNITION = 7104 }
 }
 
 @Composable
-private fun MindRoot() {
+private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: Int, sensorRevision: Int) {
     var page by rememberSaveable { mutableStateOf("home") }
     var water by rememberSaveable { mutableIntStateOf(0) }
     var waterGoal by rememberSaveable { mutableIntStateOf(8) }
     var waterEntries by remember { mutableStateOf<List<WaterEntry>>(emptyList()) }
     var steps by rememberSaveable { mutableIntStateOf(0) }
+    var stepSensorAvailable by rememberSaveable { mutableStateOf(false) }
     var stepEntries by remember { mutableStateOf<List<StepEntry>>(emptyList()) }
     var habitHistory by remember { mutableStateOf<List<HabitDayRecord>>(emptyList()) }
     var habitDateKey by rememberSaveable { mutableStateOf(mindDateKey(System.currentTimeMillis())) }
@@ -113,8 +166,8 @@ private fun MindRoot() {
             else saved.waterEntries.count { it.recordedAt >= todayStart }.coerceAtMost(40)
         waterGoal = saved.waterGoal
         val todayKey = mindDateKey(System.currentTimeMillis())
-        stepEntries = if (saved.stepEntries.isEmpty() && saved.steps > 0) listOf(StepEntry(System.currentTimeMillis(), saved.steps)) else saved.stepEntries
-        steps = stepEntries.filter { mindDateKey(it.recordedAt) == todayKey }.sumOf { it.delta }.coerceIn(0, 100000)
+        stepEntries = if (saved.stepSensorInitialized) saved.stepEntries else emptyList()
+        steps = if (saved.stepSensorInitialized) stepEntries.filter { mindDateKey(it.recordedAt) == todayKey }.sumOf { it.delta }.coerceIn(0, 100000) else 0
         habitHistory = saved.habitHistory
         habitDateKey = todayKey
         val todayHabitRecord = saved.habitHistory.lastOrNull { it.dateKey == todayKey }
@@ -132,6 +185,16 @@ private fun MindRoot() {
         stateLoaded = true
     }
 
+    LaunchedEffect(sensorRevision, stateLoaded) {
+        if (stateLoaded && sensorRevision > 0) {
+            stepSensorAvailable = sensorSupported
+            if (sensorSupported) {
+                steps = sensorSteps.coerceIn(0, 100000)
+                if (sensorDelta > 0) stepEntries = (stepEntries + StepEntry(System.currentTimeMillis(), sensorDelta)).takeLast(30000)
+            }
+        }
+    }
+
     LaunchedEffect(
         stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
         habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode,
@@ -147,6 +210,7 @@ private fun MindRoot() {
                         waterEntries = waterEntries,
                         steps = steps,
                         stepEntries = stepEntries,
+                        stepSensorInitialized = true,
                         habitHistory = habitHistory,
                         studyMinutes = studyMinutes,
                         sleepHours = sleepHours,
@@ -178,15 +242,6 @@ private fun MindRoot() {
             delay(60_000)
             val today = mindDateKey(System.currentTimeMillis())
             if (today != habitDateKey) { habitDateKey = today; habitMask = 0; steps = 0 }
-        }
-    }
-    val recordStepDelta: (Int) -> Unit = { delta ->
-        val now = System.currentTimeMillis()
-        if (mindDateKey(now) != habitDateKey) { habitDateKey = mindDateKey(now); habitMask = 0 }
-        val applied = if (delta < 0) -minOf(-delta, steps) else minOf(delta, 100000 - steps)
-        if (applied != 0) {
-            steps = (steps + applied).coerceIn(0, 100000)
-            stepEntries = (stepEntries + StepEntry(now, applied)).takeLast(30000)
         }
     }
 
@@ -301,10 +356,7 @@ private fun MindRoot() {
                                     onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
                                 )
                                 "mindmap" -> MindMapScreen()
-                                "fitness" -> FitnessScreen(
-                                    steps, { recordStepDelta(500) },
-                                    { if (steps >= 500) recordStepDelta(-500) }
-                                )
+                                "fitness" -> FitnessScreen(steps, stepSensorAvailable)
                                 "sleep" -> SleepScreen(
                                     hours = sleepHours, sessions = sleepSessions,
                                     activeStartedAt = activeSleepStartedAt,
@@ -827,22 +879,21 @@ private fun StudyScreen(
 }
 
 @Composable
-private fun FitnessScreen(steps: Int, add: () -> Unit, remove: () -> Unit) {
+private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         GlassCard {
             Text("الجري واللياقة", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-            Text("متابعة الخطوات والهدف اليومي", color = Muted, fontSize = 13.sp)
+            Text("عداد خطوات تلقائي من مستشعر الهاتف", color = Muted, fontSize = 13.sp)
             Text(steps.toString(), color = Gold, fontSize = 42.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-            Text("خطوة", color = Muted)
-            LinearProgressIndicator(progress = { (steps / 8000f).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp).height(7.dp), color = Gold, trackColor = Color(0x22FFFFFF))
-            Text("$steps / 8000", color = Muted, fontSize = 12.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = add, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("+ 500 خطوة") }
-                OutlinedButton(onClick = remove, modifier = Modifier.weight(1f)) { Text("− 500") }
+            Text("خطوة اليوم", color = Muted)
+            LinearProgressIndicator(progress = { (steps / 8000f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp).height(7.dp), color = Gold, trackColor = Color(0x22FFFFFF))
+            Text("$"+"steps / 8000", color = Muted, fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (sensorAvailable) Color(0xFF5BD68A) else Gold))
+                Text(if (sensorAvailable) "المستشعر يعمل — يتم تسجيل خطواتك تلقائياً" else "بانتظار إذن النشاط أو التحقق من وجود مستشعر الخطوات", color = Muted, fontSize = 12.sp)
             }
         }
-        Text("الإضافة اليدوية متاحة هنا؛ عداد الحركة التلقائي وGPS يحتاجان خدمة خلفية وأذونات الجهاز، وسيتم ربطهما في مرحلة التنفيذ الخاصة بهما.", color = Muted, fontSize = 12.sp)
+        Text("يستمر التتبع في الخلفية عبر خدمة النظام. إذا لم يدعم هاتفك مستشعر عدّ الخطوات فلن نعرض قيماً تقديرية على أنها خطوات حقيقية.", color = Muted, fontSize = 12.sp)
     }
 }
 
