@@ -227,15 +227,16 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
             Text("المستويات غير المحققة تبقى ظاهرة حتى تعرف هدفك التالي.",color=SM,fontSize=11.sp)
         }}
         items(groups){g->
+            val groupValue=if(g.key=="ach") baseOpened else values[g.key]?:0
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(14.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
-                Row(verticalAlignment=Alignment.CenterVertically){Icon(g.icon,null,tint=SG,modifier=Modifier.size(21.dp));Spacer(Modifier.width(9.dp));Text(g.label,Modifier.weight(1f),fontWeight=FontWeight.Bold);Text((values[g.key]?:0).toString(),color=SG,fontWeight=FontWeight.Bold)}
+                Row(verticalAlignment=Alignment.CenterVertically){Icon(g.icon,null,tint=SG,modifier=Modifier.size(21.dp));Spacer(Modifier.width(9.dp));Text(g.label,Modifier.weight(1f),fontWeight=FontWeight.Bold);Text(groupValue.toString(),color=SG,fontWeight=FontWeight.Bold)}
                 Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){g.levels.forEach{level->
-                    val got=(values[g.key]?:0)>=level
+                    val got=groupValue>=level
                     Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if(got)SG.copy(alpha=.16f) else Color.White.copy(alpha=.035f)).border(1.dp,if(got)SG.copy(alpha=.5f) else SB,RoundedCornerShape(10.dp)).padding(vertical=9.dp,horizontal=1.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)){
                         Icon(Icons.Rounded.Star,null,tint=if(got)SG else SM.copy(alpha=.35f),modifier=Modifier.size(16.dp));Text(level.toString(),fontSize=9.sp,fontWeight=FontWeight.Bold,color=if(got)SG else SM)
                     }
                 }}
-                val next=g.levels.firstOrNull{(values[g.key]?:0)<it};val progress=if(next==null)1f else ((values[g.key]?:0).toFloat()/next).coerceIn(0f,1f)
+                val next=g.levels.firstOrNull{groupValue<it};val progress=if(next==null)1f else (groupValue.toFloat()/next).coerceIn(0f,1f)
                 LinearProgressIndicator(progress={progress},modifier=Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),color=SG,trackColor=Color.White.copy(alpha=.07f))
             }
         }
