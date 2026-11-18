@@ -1,0 +1,71 @@
+package app.mind.mobile
+
+import android.content.Context
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.first
+
+private val Context.mindDataStore by preferencesDataStore(name = "mind_local_data")
+
+data class MindSavedState(
+    val water: Int = 0,
+    val waterGoal: Int = 8,
+    val steps: Int = 0,
+    val studyMinutes: Int = 0,
+    val sleepHours: Float = 0f,
+    val habitMask: Int = 0,
+    val habitNames: String = "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم",
+    val noteText: String = "",
+    val focusSeconds: Int = 25 * 60,
+    val focusMode: String = "تركيز"
+)
+
+private object MindPreferenceKeys {
+    val water = intPreferencesKey("water")
+    val waterGoal = intPreferencesKey("water_goal")
+    val steps = intPreferencesKey("steps")
+    val studyMinutes = intPreferencesKey("study_minutes")
+    val sleepHours = floatPreferencesKey("sleep_hours")
+    val habitMask = intPreferencesKey("habit_mask")
+    val habitNames = stringPreferencesKey("habit_names")
+    val noteText = stringPreferencesKey("note_text")
+    val focusSeconds = intPreferencesKey("focus_seconds")
+    val focusMode = stringPreferencesKey("focus_mode")
+}
+
+suspend fun loadMindSavedState(context: Context): MindSavedState {
+    val preferences = context.mindDataStore.data.first()
+    return MindSavedState(
+        water = preferences[MindPreferenceKeys.water] ?: 0,
+        waterGoal = (preferences[MindPreferenceKeys.waterGoal] ?: 8).coerceIn(1, 20),
+        steps = (preferences[MindPreferenceKeys.steps] ?: 0).coerceIn(0, 100_000),
+        studyMinutes = (preferences[MindPreferenceKeys.studyMinutes] ?: 0).coerceAtLeast(0),
+        sleepHours = (preferences[MindPreferenceKeys.sleepHours] ?: 0f).coerceIn(0f, 16f),
+        habitMask = (preferences[MindPreferenceKeys.habitMask] ?: 0).coerceAtLeast(0),
+        habitNames = preferences[MindPreferenceKeys.habitNames]
+            ?: "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم",
+        noteText = preferences[MindPreferenceKeys.noteText] ?: "",
+        focusSeconds = (preferences[MindPreferenceKeys.focusSeconds] ?: 25 * 60).coerceAtLeast(0),
+        focusMode = preferences[MindPreferenceKeys.focusMode]
+            ?.takeIf { it == "تركيز" || it == "استراحة" } ?: "تركيز"
+    )
+}
+
+suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
+    context.mindDataStore.edit { preferences ->
+        preferences[MindPreferenceKeys.water] = state.water.coerceIn(0, 40)
+        preferences[MindPreferenceKeys.waterGoal] = state.waterGoal.coerceIn(1, 20)
+        preferences[MindPreferenceKeys.steps] = state.steps.coerceIn(0, 100_000)
+        preferences[MindPreferenceKeys.studyMinutes] = state.studyMinutes.coerceAtLeast(0)
+        preferences[MindPreferenceKeys.sleepHours] = state.sleepHours.coerceIn(0f, 16f)
+        preferences[MindPreferenceKeys.habitMask] = state.habitMask.coerceAtLeast(0)
+        preferences[MindPreferenceKeys.habitNames] = state.habitNames
+        preferences[MindPreferenceKeys.noteText] = state.noteText
+        preferences[MindPreferenceKeys.focusSeconds] = state.focusSeconds.coerceAtLeast(0)
+        preferences[MindPreferenceKeys.focusMode] =
+            if (state.focusMode == "استراحة") "استراحة" else "تركيز"
+    }
+}
