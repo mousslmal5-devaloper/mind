@@ -95,8 +95,7 @@ class GpsWorkoutService : Service(), LocationListener {
         if (previous != null) {
             val segment = previous.distanceTo(location)
             val seconds = ((location.elapsedRealtimeNanos - previous.elapsedRealtimeNanos).coerceAtLeast(0L)) / 1_000_000_000f
-            val maxSpeed = if (workoutType == "دراجة") 25f else 12f
-            if (seconds <= 0f || segment < MIN_SEGMENT_METERS || segment / seconds > maxSpeed) {
+            if (!WorkoutDistanceMath.isAcceptableSegment(segment, seconds, location.accuracy, workoutType)) {
                 publish(true, "GPS متصل — تم تجاهل قراءة غير موثوقة")
                 return
             }
@@ -203,7 +202,6 @@ class GpsWorkoutService : Service(), LocationListener {
         private const val CHANNEL_ID = "mind_gps_tracking"
         private const val NOTIFICATION_ID = 7105
         private const val MAX_ACCURACY_METERS = 35f
-        private const val MIN_SEGMENT_METERS = 2f
         private const val TAG = "MIND_GPS"
     }
 }
