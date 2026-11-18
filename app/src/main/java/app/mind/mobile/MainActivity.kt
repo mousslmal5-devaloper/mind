@@ -234,6 +234,16 @@ private fun MindRoot() {
                                     { if (water > 0) { water -= 1; waterEntries = waterEntries.dropLast(1) } },
                                     { waterGoal = it.coerceIn(1, 20) }
                                 )
+                                "stats" -> StatisticsScreen(
+                                    habits = habits, habitMask = habitMask, water = water, waterGoal = waterGoal,
+                                    waterEntries = waterEntries, steps = steps, studySessions = studySessions,
+                                    sleepSessions = sleepSessions
+                                )
+                                "awards" -> AwardsScreen(
+                                    habits = habits, habitMask = habitMask, waterEntries = waterEntries,
+                                    sleepSessions = sleepSessions, studyMinutes = studyMinutes,
+                                    studySessions = studySessions, steps = steps, noteText = noteText
+                                )
                                 "study" -> StudyScreen(
                                     mode = focusMode, seconds = focusSeconds, running = focusRunning,
                                     totalMinutes = studyMinutes, focusDurationMinutes = focusDurationMinutes,
@@ -266,7 +276,7 @@ private fun MindRoot() {
                                     onDelete = { session -> sleepSessions = sleepSessions.filterNot { it.startedAt == session.startedAt } }
                                 )
                                 "notes" -> NotesScreen(noteText, { noteText = it })
-                                "settings" -> SettingsScreen(onAccount = { page = "auth" })
+                                "settings", "me" -> SettingsScreen(onAccount = { page = "auth" })
                                 "auth" -> AuthScreen(onSignedIn = { page = "home" })
                                 else -> Dashboard(
                                     habits = habits, habitMask = habitMask, water = water,
@@ -311,8 +321,9 @@ private fun SideNavigation(page: String, expanded: Boolean, onSelect: (String) -
         )
         RailItem("الرئيسية", "home", Icons.Rounded.Home, page, expanded, onSelect)
         RailItem("العادات", "habits", Icons.Rounded.CheckCircle, page, expanded, onSelect)
-        RailItem("الماء", "water", Icons.Rounded.WaterDrop, page, expanded, onSelect)
-        RailItem("الإعدادات", "settings", Icons.Rounded.Settings, page, expanded, onSelect)
+        RailItem("الإحصائيات", "stats", Icons.Rounded.School, page, expanded, onSelect)
+        RailItem("الإنجازات", "awards", Icons.Rounded.CheckCircle, page, expanded, onSelect)
+        RailItem("حسابي", "me", Icons.Rounded.Settings, page, expanded, onSelect)
         Spacer(Modifier.weight(1f))
         if (expanded) Text("عقلك، وقتك، حياتك", color = Muted, fontSize = 11.sp)
     }
@@ -339,15 +350,16 @@ private fun RailItem(
 @Composable
 private fun BottomNavigation(page: String, onSelect: (String) -> Unit) {
     NavigationBar(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
             .clip(RoundedCornerShape(24.dp)).border(1.dp, GlassBorder, RoundedCornerShape(24.dp)),
         containerColor = Color(0xE6151518), contentColor = Color.White,
         tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
-        NavigationBarItem(page == "home", { onSelect("home") }, { Icon(Icons.Rounded.Home, null) }, label = { Text("الرئيسية") })
-        NavigationBarItem(page == "habits", { onSelect("habits") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("العادات") })
-        NavigationBarItem(page == "water", { onSelect("water") }, { Icon(Icons.Rounded.WaterDrop, null) }, label = { Text("الماء") })
-        NavigationBarItem(page == "settings", { onSelect("settings") }, { Icon(Icons.Rounded.Settings, null) }, label = { Text("الإعدادات") })
+        NavigationBarItem(page == "home", { onSelect("home") }, { Icon(Icons.Rounded.Home, null) }, label = { Text("الرئيسية", fontSize = 10.sp) })
+        NavigationBarItem(page == "habits", { onSelect("habits") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("العادات", fontSize = 10.sp) })
+        NavigationBarItem(page == "stats", { onSelect("stats") }, { Icon(Icons.Rounded.School, null) }, label = { Text("الإحصائيات", fontSize = 10.sp) })
+        NavigationBarItem(page == "awards", { onSelect("awards") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("الإنجازات", fontSize = 10.sp) })
+        NavigationBarItem(page == "me" || page == "settings", { onSelect("me") }, { Icon(Icons.Rounded.Settings, null) }, label = { Text("حسابي", fontSize = 10.sp) })
     }
 }
 
@@ -889,6 +901,9 @@ private fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
 
 private fun pageTitle(page: String): String = when (page) {
     "habits" -> "العادات"
+    "stats" -> "الإحصائيات"
+    "awards" -> "الإنجازات"
+    "me" -> "حسابي"
     "water" -> "الماء"
     "study" -> "الدراسة والتركيز"
     "fitness" -> "الجري واللياقة"
