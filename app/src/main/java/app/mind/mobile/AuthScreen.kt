@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 
@@ -29,20 +30,13 @@ fun AuthScreen(onSignedIn: () -> Unit) {
     var createAccount by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
-    var auth by remember { mutableStateOf<FirebaseAuth?>(null) }
-    var configError by remember { mutableStateOf(false) }
-
-    if (auth == null && !configError) {
-        try {
-            if (FirebaseApp.getApps(androidx.compose.ui.platform.LocalContext.current).isNotEmpty()) {
-                auth = FirebaseAuth.getInstance()
-            } else {
-                configError = true
-            }
-        } catch (_: IllegalStateException) {
-            configError = true
-        }
+    val context = LocalContext.current
+    val auth = remember {
+        runCatching {
+            if (FirebaseApp.getApps(context).isNotEmpty()) FirebaseAuth.getInstance() else null
+        }.getOrNull()
     }
+    val configError = auth == null
 
     Column(
         modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
