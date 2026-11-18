@@ -19,6 +19,7 @@ data class WaterEntry(val recordedAt: Long)
 data class StepEntry(val recordedAt: Long, val delta: Int)
 data class HabitDayRecord(val dateKey: String, val completedMask: Int, val habitCount: Int)
 data class SleepSession(val startedAt: Long, val endedAt: Long) { val durationMinutes: Int get() = ((endedAt - startedAt) / 60000L).toInt() }
+data class WorkoutSession(val startedAt: Long, val endedAt: Long, val type: String, val distanceMeters: Float, val durationSeconds: Long) { val distanceKm: Float get() = distanceMeters / 1000f }
 
 data class MindSavedState(
     val water: Int = 0,
@@ -38,7 +39,8 @@ data class MindSavedState(
     val studySessions: List<StudySession> = emptyList(),
     val stepEntries: List<StepEntry> = emptyList(),
     val habitHistory: List<HabitDayRecord> = emptyList(),
-    val stepSensorInitialized: Boolean = false
+    val stepSensorInitialized: Boolean = false,
+    val workoutSessions: List<WorkoutSession> = emptyList()
 )
 
 private object MindPreferenceKeys {
@@ -60,6 +62,7 @@ private object MindPreferenceKeys {
     val stepEntries = stringPreferencesKey("step_entries")
     val habitHistory = stringPreferencesKey("habit_history")
     val stepSensorInitialized = booleanPreferencesKey("step_sensor_initialized")
+    val workoutSessions = stringPreferencesKey("workout_sessions")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -84,7 +87,8 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
         waterEntries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]"),
         stepEntries = decodeStepEntries(preferences[MindPreferenceKeys.stepEntries] ?: "[]"),
         habitHistory = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]"),
-        stepSensorInitialized = preferences[MindPreferenceKeys.stepSensorInitialized] ?: false
+        stepSensorInitialized = preferences[MindPreferenceKeys.stepSensorInitialized] ?: false,
+        workoutSessions = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]")
     )
 }
 
@@ -109,6 +113,7 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.stepEntries] = encodeStepEntries(state.stepEntries)
         preferences[MindPreferenceKeys.habitHistory] = encodeHabitHistory(state.habitHistory)
         preferences[MindPreferenceKeys.stepSensorInitialized] = state.stepSensorInitialized
+        preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions(state.workoutSessions)
     }
 }
 
@@ -197,4 +202,20 @@ private fun decodeSleepSessions(raw: String): List<SleepSession> = runCatching {
             if (start > 0L && end > start && duration in 1..960) add(SleepSession(start, end))
         }
     }.takeLast(2000)
+}.getOrDefault(emptyList())
+private fun encodeWorkoutSessions(sessions: List<WorkoutSession>): String = JSONArray().apply {
+    sessions.takeLast(2000).forEach { session -> put(JSONObject().put("startedAt", session.startedAt).put("endedAt", session.endedAt).put("type", session.type).put("distanceMeters", session.distanceMeters.coerceIn(0f, 2000000f).toDouble()).put("durationSeconds", session.durationSeconds.coerceIn(1L, 172800L))) }
+}.toString()
+
+private fun decodeWorkoutSessions(raw: String): List<WorkoutSession> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val start = item.optLong("startedAt", 0L); val end = item.optLong("endedAt", 0L)
+            val type = item.optString("type", ""); val distance = item.optDouble("distanceMeters", -1.0).toFloat()
+            val duration = item.optLong("durationSeconds", 0L)
+            if (start > 0L && end > start && type in setOf("مشي", "جري", "دراجة") && distance.isFinite() && distance in 0f..2000000f && duration in 1L..172800L) add(WorkoutSession(start, end, type, distance, duration))
+        }
+    }.distinctBy { it.startedAt }.takeLast(2000)
 }.getOrDefault(emptyList())
