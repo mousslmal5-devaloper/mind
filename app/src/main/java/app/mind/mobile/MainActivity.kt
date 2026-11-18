@@ -884,20 +884,95 @@ private fun StudyScreen(
 
 @Composable
 private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        GlassCard {
-            Text("الجري واللياقة", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-            Text("عداد خطوات تلقائي من مستشعر الهاتف", color = Muted, fontSize = 13.sp)
-            Text(steps.toString(), color = Gold, fontSize = 42.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-            Text("خطوة اليوم", color = Muted)
-            LinearProgressIndicator(progress = { (steps / 8000f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp).height(7.dp), color = Gold, trackColor = Color(0x22FFFFFF))
-            Text("${steps} / 8000 خطوة", color = Muted, fontSize = 12.sp)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(if (sensorAvailable) Color(0xFF5BD68A) else Gold))
-                Text(if (sensorAvailable) "المستشعر يعمل — يتم تسجيل خطواتك تلقائياً" else "بانتظار إذن النشاط أو التحقق من وجود مستشعر الخطوات", color = Muted, fontSize = 12.sp)
+    val context = LocalContext.current
+    var workoutType by rememberSaveable { mutableStateOf("جري") }
+    var tracking by rememberSaveable { mutableStateOf(false) }
+    var distanceMeters by rememberSaveable { mutableFloatStateOf(0f) }
+    var elapsedSeconds by rememberSaveable { mutableLongStateOf(0L) }
+    var gpsReady by rememberSaveable { mutableStateOf(false) }
+    var gpsMessage by rememberSaveable { mutableStateOf("لم تبدأ جلسة بعد") }
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
+            tracking = true
+            gpsMessage = "جارٍ الحصول على إشارة GPS"
+        } else gpsMessage = "يلزم السماح بالوصول إلى الموقع لقياس المسافة"
+    }
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action != GpsWorkoutService.ACTION_UPDATE) return
+                tracking = intent.getBooleanExtra(GpsWorkoutService.EXTRA_ACTIVE, false)
+                distanceMeters = intent.getFloatExtra(GpsWorkoutService.EXTRA_DISTANCE, 0f)
+                elapsedSeconds = intent.getLongExtra(GpsWorkoutService.EXTRA_ELAPSED, 0L)
+                gpsReady = intent.getBooleanExtra(GpsWorkoutService.EXTRA_GPS_READY, false)
+                gpsMessage = intent.getStringExtra(GpsWorkoutService.EXTRA_MESSAGE) ?: gpsMessage
             }
         }
-        Text("يستمر التتبع في الخلفية عبر خدمة النظام. إذا لم يدعم هاتفك مستشعر عدّ الخطوات فلن نعرض قيماً تقديرية على أنها خطوات حقيقية.", color = Muted, fontSize = 12.sp)
+        val filter = IntentFilter(GpsWorkoutService.ACTION_UPDATE)
+        if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED) else @Suppress("DEPRECATION") context.registerReceiver(receiver, filter)
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    LaunchedEffect(tracking) {
+        while (tracking) { delay(1000); elapsedSeconds++ }
+    }
+    val distanceText = if (distanceMeters >= 1000f) "%.2f كم".format(java.util.Locale.getDefault(), distanceMeters / 1000f) else "%d م".format(distanceMeters.toInt())
+    val timeText = "%02d:%02d:%02d".format(elapsedSeconds / 3600, (elapsedSeconds % 3600) / 60, elapsedSeconds % 60)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            GlassCard {
+                Text("الجري واللياقة", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text("تتبّع المسافة والمدة مباشرة عبر GPS الهاتف", color = Muted, fontSize = 13.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("مشي", "جري", "دراجة").forEach { type ->
+                        FilterChip(selected = workoutType == type, onClick = { if (!tracking) workoutType = type }, label = { Text(type) }, enabled = !tracking)
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("المسافة", color = Muted, fontSize = 12.sp)
+                        Text(distanceText, color = Gold, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text("المدة", color = Muted, fontSize = 12.sp)
+                        Text(timeText, color = Gold, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (gpsReady) Color(0xFF5BD68A) else Gold))
+                    Text(gpsMessage, color = Muted, fontSize = 12.sp)
+                }
+                Button(
+                    onClick = {
+                        if (tracking) {
+                            context.startService(Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_STOP))
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        } else {
+                            val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
+                            tracking = true
+                            gpsMessage = "جارٍ الحصول على إشارة GPS"
+                            distanceMeters = 0f
+                            elapsedSeconds = 0L
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (tracking) Color(0xFFB94B4B) else Gold, contentColor = if (tracking) Color.White else Ink)
+                ) { Text(if (tracking) "إنهاء الجلسة" else "بدء ${workoutType}") }
+            }
+        }
+        item {
+            GlassCard {
+                Text("خطوات اليوم", color = Gold, fontWeight = FontWeight.Bold)
+                Text(steps.toString(), color = Gold, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                Text(if (sensorAvailable) "تُقاس تلقائياً من مستشعر الخطوات" else "مستشعر الخطوات غير متاح حالياً", color = Muted, fontSize = 12.sp)
+            }
+        }
+        item { Text("ملاحظة: قياس المسافة يحتاج رؤية واضحة للأقمار الصناعية. قد تتأخر القراءة داخل المباني، ولن تُحتسب المواقع غير الدقيقة.", color = Muted, fontSize = 12.sp) }
     }
 }
 
