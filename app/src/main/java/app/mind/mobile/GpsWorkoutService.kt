@@ -42,7 +42,15 @@ class GpsWorkoutService : Service(), LocationListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> stopWorkout()
+            ACTION_STATUS -> {
+                publish(active, if (active) "جلسة $workoutType قيد التسجيل" else "لا توجد جلسة نشطة")
+                if (!active) stopSelf(startId)
+            }
             ACTION_START -> {
+                if (active) {
+                    publish(true, "جلسة $workoutType قيد التسجيل")
+                    return START_STICKY
+                }
                 workoutType = intent.getStringExtra(EXTRA_TYPE)?.takeIf { it in setOf("مشي", "جري", "دراجة") } ?: "جري"
                 startWorkout()
             }
@@ -190,6 +198,7 @@ class GpsWorkoutService : Service(), LocationListener {
         const val ACTION_START = "app.mind.mobile.GPS_START"
         const val ACTION_STOP = "app.mind.mobile.GPS_STOP"
         const val ACTION_UPDATE = "app.mind.mobile.GPS_UPDATE"
+        const val ACTION_STATUS = "app.mind.mobile.GPS_STATUS"
         const val EXTRA_TYPE = "workout_type"
         const val EXTRA_ACTIVE = "active"
         const val EXTRA_DISTANCE = "distance_meters"
