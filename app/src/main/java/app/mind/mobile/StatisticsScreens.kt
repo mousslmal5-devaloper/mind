@@ -55,7 +55,7 @@ private fun sDays(count: Int = 7): List<String> {
 private fun List<Float>.meanKnown(): Float { val v=filterNot { it.isNaN() }; return if(v.isEmpty()) 0f else v.average().toFloat() }
 
 @Composable
-fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,waterEntries:List<WaterEntry>,steps:Int,studySessions:List<StudySession>,sleepSessions:List<SleepSession>) {
+fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,waterEntries:List<WaterEntry>,steps:Int,stepEntries:List<StepEntry>,habitHistory:List<HabitDayRecord>,studySessions:List<StudySession>,sleepSessions:List<SleepSession>) {
     var period by rememberSaveable { mutableStateOf("week") }
     val days=remember(period) { sDays(if (period == "month") 30 else 7) }; val today=days.last()
     val start=remember { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0) }.timeInMillis }
@@ -67,10 +67,16 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
     val waterHour=(0..23).map { h -> waterEntries.count { it.recordedAt>=start && sHour(it.recordedAt)==h }.toFloat() }
     val studyHour=(0..23).map { h -> studySessions.filter { it.completedAt>=start && sHour(it.completedAt)==h }.sumOf { it.durationMinutes }.toFloat() }
     val sleepHour=(0..23).map { h -> val a=start+h*3600000L; val b=a+3600000L; sleepSessions.sumOf { (minOf(b,it.endedAt)-maxOf(a,it.startedAt)).coerceAtLeast(0L) }/3600000f }
-    val stepsWeek=days.map { if(it==today) steps.toFloat() else Float.NaN }
-    val habitsWeek=days.map { if(it==today) habitPct else Float.NaN }
-    val stepsHour=(0..23).map { if(it==hour && steps>0) steps.toFloat() else Float.NaN }
-    val habitsHour=(0..23).map { if(it==hour && habitPct>0) habitPct else Float.NaN }
+    val stepsByDay=stepEntries.groupBy { sDate(it.recordedAt) }
+    val stepsWeek=days.map { k -> (stepsByDay[k]?.sumOf { it.delta } ?: if(k==today) steps else 0).coerceAtLeast(0).toFloat() }
+    val habitByDay=habitHistory.associateBy { it.dateKey }
+    val habitsWeek=days.map { k ->
+        val record=habitByDay[k]
+        if(record!=null) if(record.habitCount==0) 0f else Integer.bitCount(record.completedMask).coerceAtMost(record.habitCount)*100f/record.habitCount
+        else if(k==today) habitPct else Float.NaN
+    }
+    val stepsHour=(0..23).map { h -> stepEntries.filter { sDate(it.recordedAt)==today && sHour(it.recordedAt)==h }.sumOf { it.delta }.coerceAtLeast(0).toFloat().let { if(it==0f) Float.NaN else it } }
+    val habitsHour=(0..23).map { Float.NaN }
     val caloriesWeek=stepsWeek.map { if(it.isNaN()) Float.NaN else it*.04f }
     val caloriesHour=stepsHour.map { if(it.isNaN()) Float.NaN else it*.04f }
     val labels=days.map { runCatching { SimpleDateFormat(if(period=="month") "d" else "EEE",Locale("ar")).format(SimpleDateFormat("yyyy-MM-dd",Locale.US).parse(it)!!) }.getOrDefault("—") }
@@ -83,10 +89,10 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
         RMetric(studyHour.sum(),120f,SPurple,studyHour.sum().roundToInt().toString(),"دقائق التركيز"),
         RMetric(sleepHour.sum(),8f,STeal,String.format(Locale.US,"%.1f",sleepHour.sum()),"النوم")
     ) else listOf(
-        RMetric(steps.toFloat(),10000f,SG,steps.toString(),"الخطوات اليوم"),
+        RMetric(stepsWeek.sum(),10000f*days.size,SG,stepsWeek.sum().roundToInt().toString(),"الخطوات"),
         RMetric(waterWeek.sum(),(waterGoal*days.size).coerceAtLeast(1).toFloat(),SBlue,waterWeek.sum().roundToInt().toString(),"الماء"),
-        RMetric(steps*.04f,400f,SOrange,(steps*.04f).roundToInt().toString(),"سعرات اليوم"),
-        RMetric(habitPct,100f,SGreen,habitPct.roundToInt().toString()+"%","العادات اليوم"),
+        RMetric(caloriesWeek.filterNot { it.isNaN() }.sum(),400f*days.size,SOrange,caloriesWeek.filterNot { it.isNaN() }.sum().roundToInt().toString(),"سعرات تقديرية"),
+        RMetric(habitsWeek.meanKnown(),100f,SGreen,habitsWeek.meanKnown().roundToInt().toString()+"%","متوسط العادات"),
         RMetric(studyWeek.sum(),120f*days.size,SPurple,studyWeek.sum().roundToInt().toString(),"دقائق التركيز"),
         RMetric(sleepWeek.meanKnown(),8f,STeal,String.format(Locale.US,"%.1f",sleepWeek.meanKnown()),"متوسط النوم")
     )
@@ -136,11 +142,11 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
                 }
             }
         }
-        if(period=="week") {
-            item { HabitWeekGrid(habits,habitMask,labels) }
+        if(period!="day") {
+            item { HabitWeekGrid(habits,habitMask,labels,habitHistory) }
             item { SleepWeekGrid(sleepSessions,days,labels) }
         }
-        item { Text("السعرات تقديرية من عدد الخطوات. بيانات الخطوات والعادات للأيام السابقة لا تُعرض قبل توفر سجل يومي لها.",color=SM,fontSize=10.sp) }
+        item { Text("السعرات تقديرية من الخطوات. منحنى العادات يعرض الأيام المسجلة فقط، ولا تتوفر بيانات ساعة بساعة للعادات بعد.",color=SM,fontSize=10.sp) }
     }
 }
 
