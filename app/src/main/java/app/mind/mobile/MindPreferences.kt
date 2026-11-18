@@ -5,10 +5,14 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 
 private val Context.mindDataStore by preferencesDataStore(name = "mind_local_data")
+
+data class StudySession(val completedAt: Long, val durationMinutes: Int)
 
 data class MindSavedState(
     val water: Int = 0,
@@ -20,7 +24,9 @@ data class MindSavedState(
     val habitNames: String = "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم",
     val noteText: String = "",
     val focusSeconds: Int = 25 * 60,
-    val focusMode: String = "تركيز"
+    val focusMode: String = "تركيز",
+    val focusDurationMinutes: Int = 25,
+    val studySessions: List<StudySession> = emptyList()
 )
 
 private object MindPreferenceKeys {
@@ -34,6 +40,8 @@ private object MindPreferenceKeys {
     val noteText = stringPreferencesKey("note_text")
     val focusSeconds = intPreferencesKey("focus_seconds")
     val focusMode = stringPreferencesKey("focus_mode")
+    val focusDurationMinutes = intPreferencesKey("focus_duration_minutes")
+    val studySessions = stringPreferencesKey("study_sessions")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -50,7 +58,9 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
         noteText = preferences[MindPreferenceKeys.noteText] ?: "",
         focusSeconds = (preferences[MindPreferenceKeys.focusSeconds] ?: 25 * 60).coerceAtLeast(0),
         focusMode = preferences[MindPreferenceKeys.focusMode]
-            ?.takeIf { it == "تركيز" || it == "استراحة" } ?: "تركيز"
+            ?.takeIf { it == "تركيز" || it == "استراحة" } ?: "تركيز",
+        focusDurationMinutes = (preferences[MindPreferenceKeys.focusDurationMinutes] ?: 25).coerceIn(1, 180),
+        studySessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]")
     )
 }
 
@@ -67,5 +77,29 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.focusSeconds] = state.focusSeconds.coerceAtLeast(0)
         preferences[MindPreferenceKeys.focusMode] =
             if (state.focusMode == "استراحة") "استراحة" else "تركيز"
+        preferences[MindPreferenceKeys.focusDurationMinutes] = state.focusDurationMinutes.coerceIn(1, 180)
+        preferences[MindPreferenceKeys.studySessions] = encodeStudySessions(state.studySessions)
     }
 }
+
+
+private fun encodeStudySessions(sessions: List<StudySession>): String {
+    val array = JSONArray()
+    sessions.takeLast(5000).forEach { session ->
+        array.put(JSONObject().put("completedAt", session.completedAt)
+            .put("durationMinutes", session.durationMinutes.coerceIn(1, 180)))
+    }
+    return array.toString()
+}
+
+private fun decodeStudySessions(raw: String): List<StudySession> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("completedAt", 0L)
+            val minutes = item.optInt("durationMinutes", 0)
+            if (timestamp > 0L && minutes in 1..180) add(StudySession(timestamp, minutes))
+        }
+    }.takeLast(5000)
+}.getOrDefault(emptyList())
