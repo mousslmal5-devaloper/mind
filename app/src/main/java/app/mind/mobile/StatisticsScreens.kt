@@ -83,10 +83,10 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
         RMetric(studyHour.sum(),120f,SPurple,studyHour.sum().roundToInt().toString(),"دقائق التركيز"),
         RMetric(sleepHour.sum(),8f,STeal,String.format(Locale.US,"%.1f",sleepHour.sum()),"النوم")
     ) else listOf(
-        RMetric(stepsWeek.filterNot { it.isNaN() }.sum(),(10000f*days.size),SG,steps.toString(),"الخطوات"),
+        RMetric(steps.toFloat(),10000f,SG,steps.toString(),"الخطوات اليوم"),
         RMetric(waterWeek.sum(),(waterGoal*days.size).coerceAtLeast(1).toFloat(),SBlue,waterWeek.sum().roundToInt().toString(),"الماء"),
-        RMetric(caloriesWeek.filterNot { it.isNaN() }.sum(),400f*days.size,SOrange,caloriesWeek.filterNot { it.isNaN() }.sum().roundToInt().toString(),"سعرات تقديرية"),
-        RMetric(habitsWeek.meanKnown(),100f,SGreen,habitsWeek.meanKnown().roundToInt().toString()+"%","العادات"),
+        RMetric(steps*.04f,400f,SOrange,(steps*.04f).roundToInt().toString(),"سعرات اليوم"),
+        RMetric(habitPct,100f,SGreen,habitPct.roundToInt().toString()+"%","العادات اليوم"),
         RMetric(studyWeek.sum(),120f*days.size,SPurple,studyWeek.sum().roundToInt().toString(),"دقائق التركيز"),
         RMetric(sleepWeek.meanKnown(),8f,STeal,String.format(Locale.US,"%.1f",sleepWeek.meanKnown()),"متوسط النوم")
     )
