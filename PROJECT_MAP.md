@@ -22,9 +22,11 @@
 - Design fidelity: preserve the HTML's dark radial gradient, ambient moving orbs, translucent bordered cards, gold accent, responsive navigation, Cairo typography and transition timings; implement natively.
 
 ## [ORPHANS & PENDING]
-- Read and inventory every reference HTML screen, event, data field, persistence path, auth provider and edge case.
+- Reference HTML has been inspected for visual tokens and motion: #0d0d0f background, 900x500px radial gold glow at 85%/-10%, five slow parallax ambient orbs, translucent cards (rgba white .055/.09 border), 22px card corners, Cairo 15px/1.6, gold #e8c547/#d4a942, floating bottom navigation and staggered entrance transitions. Full screen/event/data inventory remains pending.
 - Validate supplied font family and extract original app icon, logo, and audio assets from the previous Android archive.
 - Inspect and selectively port reusable native modules; exclude old package identity, unsafe signing material and stale placeholders.
 - Confirm Firebase Android package registration and OAuth fingerprints; the previous project's Google OAuth client was reported empty.
-- Implement feature parity incrementally and verify each acceptance criterion with tests.
+- Implemented a first native Compose shell with the reference palette, animated ambient background layers, glass cards, bottom navigation and back affordance; this is a visual foundation, not complete parity.
+- Added an email/password Firebase Authentication screen with create-account/sign-in flows, input validation and user-facing error handling. It requires a google-services.json registered for app.mind.mobile; the old app config does not match this package. OAuth and Firestore sync are not yet enabled.
+- CI initially failed because Firestore was declared without a resolvable version; pinned firebase-firestore 24.11.1 and triggered new builds. Verify newest run before calling the fix successful.
 - Add CI with separate assemble, unit-test and emulator-test outcomes plus APK artifact only after a successful build.
