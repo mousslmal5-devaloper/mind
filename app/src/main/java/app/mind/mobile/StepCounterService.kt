@@ -35,7 +35,13 @@ class StepCounterService : Service(), SensorEventListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        publish(registered, prefs.getInt(KEY_DAILY, 0), 0)
+        if (intent?.action == ACTION_ACK) {
+            prefs.edit().putInt(KEY_SYNCED, intent.getIntExtra(EXTRA_TOTAL, 0).coerceIn(0, 100000)).apply()
+        } else {
+            val total = prefs.getInt(KEY_DAILY, 0).coerceIn(0, 100000)
+            val synced = prefs.getInt(KEY_SYNCED, 0).coerceIn(0, 100000)
+            publish(registered, total, (total - synced).coerceAtLeast(0))
+        }
         return START_STICKY
     }
 
@@ -56,7 +62,8 @@ class StepCounterService : Service(), SensorEventListener {
             daily = (daily + delta).coerceAtMost(100000)
         }
         prefs.edit().putString(KEY_DAY, today).putLong(KEY_RAW, raw).putInt(KEY_DAILY, daily).apply()
-        publish(true, daily, delta)
+        val synced = prefs.getInt(KEY_SYNCED, 0).coerceIn(0, 100000)
+        publish(true, daily, (daily - synced).coerceAtLeast(0))
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -90,6 +97,7 @@ class StepCounterService : Service(), SensorEventListener {
 
     companion object {
         const val ACTION_STEP_UPDATE = "app.mind.mobile.STEP_UPDATE"
+        const val ACTION_ACK = "app.mind.mobile.STEP_ACK"
         const val EXTRA_SUPPORTED = "supported"
         const val EXTRA_TOTAL = "total"
         const val EXTRA_DELTA = "delta"
@@ -97,6 +105,7 @@ class StepCounterService : Service(), SensorEventListener {
         private const val KEY_DAY = "day"
         private const val KEY_RAW = "raw_total"
         private const val KEY_DAILY = "daily_total"
+        private const val KEY_SYNCED = "synced_total"
         private const val CHANNEL_ID = "mind_step_counter"
         private const val NOTIFICATION_ID = 2601
     }
