@@ -365,7 +365,11 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
                                 )
                                 "mindmap" -> MindMapScreen()
-                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, onSessionCompleted = { session ->\n                                    workoutSessions = (workoutSessions.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000)\n                                }, onRefreshSessions = {\n                                    appScope.launch { workoutSessions = loadMindSavedState(context).workoutSessions }\n                                })
+                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, onSessionCompleted = { session ->
+                                    workoutSessions = (workoutSessions.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000)
+                                }, onRefreshSessions = {
+                                    appScope.launch { workoutSessions = loadMindSavedState(context).workoutSessions }
+                                })
                                 "sleep" -> SleepScreen(
                                     hours = sleepHours, sessions = sleepSessions,
                                     activeStartedAt = activeSleepStartedAt,
