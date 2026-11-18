@@ -55,6 +55,8 @@ private val Ink = Color(0xFF0D0D0F)
 private val Muted = Color(0xFFA2A2AB)
 private val Glass = Color(0x0EFFFFFF)
 private val GlassBorder = Color(0x17FFFFFF)
+private fun mindDateKey(timestamp: Long): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(timestamp))
+
 private val CairoFamily = androidx.compose.ui.text.font.FontFamily(
     androidx.compose.ui.text.font.Font(R.font.cairo_variable, weight = FontWeight.Normal)
 )
@@ -75,6 +77,8 @@ private fun MindRoot() {
     var waterGoal by rememberSaveable { mutableIntStateOf(8) }
     var waterEntries by remember { mutableStateOf<List<WaterEntry>>(emptyList()) }
     var steps by rememberSaveable { mutableIntStateOf(0) }
+    var stepEntries by remember { mutableStateOf<List<StepEntry>>(emptyList()) }
+    var habitHistory by remember { mutableStateOf<List<HabitDayRecord>>(emptyList()) }
     var studyMinutes by rememberSaveable { mutableIntStateOf(0) }
     var sleepHours by rememberSaveable { mutableFloatStateOf(0f) }
     var sleepSessions by remember { mutableStateOf<List<SleepSession>>(emptyList()) }
@@ -107,12 +111,16 @@ private fun MindRoot() {
         water = if (saved.waterEntries.isEmpty()) saved.water
             else saved.waterEntries.count { it.recordedAt >= todayStart }.coerceAtMost(40)
         waterGoal = saved.waterGoal
+        stepEntries = if (saved.stepEntries.isEmpty() && saved.steps > 0) listOf(StepEntry(System.currentTimeMillis(), saved.steps)) else saved.stepEntries
         steps = saved.steps
+        habitHistory = saved.habitHistory
+        val todayKey = mindDateKey(System.currentTimeMillis())
+        val todayHabitRecord = saved.habitHistory.lastOrNull { it.dateKey == todayKey }
+        habitMask = todayHabitRecord?.completedMask ?: if (saved.habitHistory.isEmpty()) saved.habitMask else 0
         studyMinutes = saved.studyMinutes
         sleepHours = saved.sleepHours
         sleepSessions = saved.sleepSessions
         activeSleepStartedAt = saved.activeSleepStartedAt
-        habitMask = saved.habitMask
         habitNames = saved.habitNames
         noteText = saved.noteText
         focusSeconds = saved.focusSeconds
@@ -124,7 +132,7 @@ private fun MindRoot() {
 
     LaunchedEffect(
         stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
-        habitMask, habitNames, noteText, focusSeconds, focusMode,
+        habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode,
         focusDurationMinutes, studySessions
     ) {
         if (stateLoaded) {
@@ -136,6 +144,8 @@ private fun MindRoot() {
                         waterGoal = waterGoal,
                         waterEntries = waterEntries,
                         steps = steps,
+                        stepEntries = stepEntries,
+                        habitHistory = habitHistory,
                         studyMinutes = studyMinutes,
                         sleepHours = sleepHours,
                         sleepSessions = sleepSessions,
@@ -153,6 +163,16 @@ private fun MindRoot() {
         }
     }
     val habits = remember(habitNames) { habitNames.split("|").filter { it.isNotBlank() } }
+    val toggleHabit: (Int) -> Unit = { index ->
+        val nextMask = habitMask xor (1 shl index)
+        habitMask = nextMask
+        val key = mindDateKey(System.currentTimeMillis())
+        habitHistory = (habitHistory.filterNot { it.dateKey == key } + HabitDayRecord(key, nextMask, habits.size)).takeLast(730)
+    }
+    val recordStepDelta: (Int) -> Unit = { delta ->
+        steps = (steps + delta).coerceIn(0, 100000)
+        stepEntries = (stepEntries + StepEntry(System.currentTimeMillis(), delta)).takeLast(30000)
+    }
 
     LaunchedEffect(focusRunning, focusSeconds) {
         if (focusRunning && focusSeconds > 0) {
@@ -215,7 +235,7 @@ private fun MindRoot() {
                                 "home" -> Dashboard(
                                     habits = habits, habitMask = habitMask, water = water,
                                     waterGoal = waterGoal, steps = steps, studyMinutes = studyMinutes,
-                                    onToggleHabit = { index -> habitMask = habitMask xor (1 shl index) },
+                                    onToggleHabit = toggleHabit,
                                     onWaterAdd = {
                                         if (water < 40) {
                                             water += 1
@@ -235,7 +255,7 @@ private fun MindRoot() {
                                             newHabit = ""
                                         }
                                     },
-                                    onToggle = { index -> habitMask = habitMask xor (1 shl index) }
+                                    onToggle = toggleHabit
                                 )
                                 "water" -> WaterScreen(
                                     water, waterGoal, waterEntries,
@@ -245,7 +265,7 @@ private fun MindRoot() {
                                 )
                                 "stats" -> StatisticsScreen(
                                     habits = habits, habitMask = habitMask, water = water, waterGoal = waterGoal,
-                                    waterEntries = waterEntries, steps = steps, studySessions = studySessions,
+                                    waterEntries = waterEntries, steps = steps, stepEntries = stepEntries, habitHistory = habitHistory, studySessions = studySessions,
                                     sleepSessions = sleepSessions
                                 )
                                 "awards" -> AwardsScreen(
@@ -266,8 +286,8 @@ private fun MindRoot() {
                                 )
                                 "mindmap" -> MindMapScreen()
                                 "fitness" -> FitnessScreen(
-                                    steps, { steps = (steps + 500).coerceAtMost(100000) },
-                                    { steps = (steps - 500).coerceAtLeast(0) }
+                                    steps, { recordStepDelta(500) },
+                                    { if (steps >= 500) recordStepDelta(-500) }
                                 )
                                 "sleep" -> SleepScreen(
                                     hours = sleepHours, sessions = sleepSessions,
