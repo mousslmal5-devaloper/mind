@@ -2,6 +2,7 @@ package app.mind.mobile
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -58,7 +60,6 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
     val days=remember { sDays() }; val today=days.last()
     val start=remember { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0) }.timeInMillis }
     val hour=Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val waterDay=days.map { k -> if(k==today) maxOf(water,waterEntries.count { sDate(it.recordedAt)==k }) else waterEntries.count { sDate(it.recordedAt)==k } .toFloat() }
     val waterWeek=days.map { k -> (if(k==today) maxOf(water,waterEntries.count { sDate(it.recordedAt)==k }) else waterEntries.count { sDate(it.recordedAt)==k }).toFloat() }
     val studyWeek=days.map { k -> studySessions.filter { sDate(it.completedAt)==k }.sumOf { it.durationMinutes }.toFloat() }
     val sleepWeek=days.map { k -> sleepSessions.filter { sDate(it.endedAt)==k }.sumOf { it.durationMinutes }/60f }
