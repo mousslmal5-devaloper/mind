@@ -15,6 +15,8 @@ private val Context.mindDataStore by preferencesDataStore(name = "mind_local_dat
 
 data class StudySession(val completedAt: Long, val durationMinutes: Int)
 data class WaterEntry(val recordedAt: Long)
+data class StepEntry(val recordedAt: Long, val delta: Int)
+data class HabitDayRecord(val dateKey: String, val completedMask: Int, val habitCount: Int)
 data class SleepSession(val startedAt: Long, val endedAt: Long) { val durationMinutes: Int get() = ((endedAt - startedAt) / 60000L).toInt() }
 
 data class MindSavedState(
@@ -32,7 +34,9 @@ data class MindSavedState(
     val focusSeconds: Int = 25 * 60,
     val focusMode: String = "تركيز",
     val focusDurationMinutes: Int = 25,
-    val studySessions: List<StudySession> = emptyList()
+    val studySessions: List<StudySession> = emptyList(),
+    val stepEntries: List<StepEntry> = emptyList(),
+    val habitHistory: List<HabitDayRecord> = emptyList()
 )
 
 private object MindPreferenceKeys {
@@ -51,6 +55,8 @@ private object MindPreferenceKeys {
     val waterEntries = stringPreferencesKey("water_entries")
     val sleepSessions = stringPreferencesKey("sleep_sessions")
     val activeSleepStartedAt = longPreferencesKey("active_sleep_started_at")
+    val stepEntries = stringPreferencesKey("step_entries")
+    val habitHistory = stringPreferencesKey("habit_history")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -72,7 +78,9 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
             ?.takeIf { it == "تركيز" || it == "استراحة" } ?: "تركيز",
         focusDurationMinutes = (preferences[MindPreferenceKeys.focusDurationMinutes] ?: 25).coerceIn(1, 180),
         studySessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]"),
-        waterEntries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]")
+        waterEntries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]"),
+        stepEntries = decodeStepEntries(preferences[MindPreferenceKeys.stepEntries] ?: "[]"),
+        habitHistory = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]")
     )
 }
 
@@ -94,6 +102,8 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.focusDurationMinutes] = state.focusDurationMinutes.coerceIn(1, 180)
         preferences[MindPreferenceKeys.studySessions] = encodeStudySessions(state.studySessions)
         preferences[MindPreferenceKeys.waterEntries] = encodeWaterEntries(state.waterEntries)
+        preferences[MindPreferenceKeys.stepEntries] = encodeStepEntries(state.stepEntries)
+        preferences[MindPreferenceKeys.habitHistory] = encodeHabitHistory(state.habitHistory)
     }
 }
 
@@ -117,6 +127,40 @@ private fun decodeStudySessions(raw: String): List<StudySession> = runCatching {
             if (timestamp > 0L && minutes in 1..180) add(StudySession(timestamp, minutes))
         }
     }.takeLast(5000)
+}.getOrDefault(emptyList())
+
+private fun encodeStepEntries(entries: List<StepEntry>): String = JSONArray().apply {
+    entries.takeLast(30000).forEach { put(JSONObject().put("recordedAt", it.recordedAt).put("delta", it.delta)) }
+}.toString()
+
+private fun decodeStepEntries(raw: String): List<StepEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("recordedAt", 0L)
+            val delta = item.optInt("delta", 0)
+            if (timestamp > 0L && delta in -100000..100000 && delta != 0) add(StepEntry(timestamp, delta))
+        }
+    }.takeLast(30000)
+}.getOrDefault(emptyList())
+
+private fun encodeHabitHistory(records: List<HabitDayRecord>): String = JSONArray().apply {
+    records.takeLast(730).forEach { put(JSONObject().put("dateKey", it.dateKey).put("completedMask", it.completedMask).put("habitCount", it.habitCount)) }
+}.toString()
+
+private fun decodeHabitHistory(raw: String): List<HabitDayRecord> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val date = item.optString("dateKey", "")
+            val mask = item.optInt("completedMask", -1)
+            val count = item.optInt("habitCount", 0)
+            if (date.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) && mask >= 0 && count in 0..20)
+                add(HabitDayRecord(date, mask, count))
+        }
+    }.distinctBy { it.dateKey }.takeLast(730)
 }.getOrDefault(emptyList())
 
 private fun encodeWaterEntries(entries: List<WaterEntry>): String = JSONArray().apply {
