@@ -1,6 +1,7 @@
 package app.mind.mobile
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 
 private val Gold = Color(0xFFE8C547)
@@ -73,6 +75,50 @@ private fun MindRoot() {
     var focusSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
     var focusRunning by rememberSaveable { mutableStateOf(false) }
     var focusMode by rememberSaveable { mutableStateOf("تركيز") }
+    val context = LocalContext.current
+    var stateLoaded by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val saved = runCatching { loadMindSavedState(context) }
+            .onFailure { Log.e("MIND", "Unable to restore local app data", it) }
+            .getOrDefault(MindSavedState())
+        water = saved.water
+        waterGoal = saved.waterGoal
+        steps = saved.steps
+        studyMinutes = saved.studyMinutes
+        sleepHours = saved.sleepHours
+        habitMask = saved.habitMask
+        habitNames = saved.habitNames
+        noteText = saved.noteText
+        focusSeconds = saved.focusSeconds
+        focusMode = saved.focusMode
+        stateLoaded = true
+    }
+
+    LaunchedEffect(
+        stateLoaded, water, waterGoal, steps, studyMinutes, sleepHours,
+        habitMask, habitNames, noteText, focusSeconds, focusMode
+    ) {
+        if (stateLoaded) {
+            runCatching {
+                saveMindSavedState(
+                    context,
+                    MindSavedState(
+                        water = water,
+                        waterGoal = waterGoal,
+                        steps = steps,
+                        studyMinutes = studyMinutes,
+                        sleepHours = sleepHours,
+                        habitMask = habitMask,
+                        habitNames = habitNames,
+                        noteText = noteText,
+                        focusSeconds = focusSeconds,
+                        focusMode = focusMode
+                    )
+                )
+            }.onFailure { Log.e("MIND", "Unable to persist local app data", it) }
+        }
+    }
     val habits = remember(habitNames) { habitNames.split("|").filter { it.isNotBlank() } }
 
     LaunchedEffect(focusRunning, focusSeconds) {
