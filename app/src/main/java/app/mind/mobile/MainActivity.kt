@@ -271,6 +271,14 @@ private fun MindRoot() {
                                 else -> Dashboard(
                                     habits = habits, habitMask = habitMask, water = water,
                                     waterGoal = waterGoal, steps = steps, studyMinutes = studyMinutes,
+                                    onToggleHabit = { index -> habitMask = habitMask xor (1 shl index) },
+                                    onWaterAdd = {
+                                        if (water < 40) {
+                                            water += 1
+                                            waterEntries = (waterEntries + WaterEntry(System.currentTimeMillis())).takeLast(20000)
+                                        }
+                                    },
+                                    onWaterRemove = { if (water > 0) water -= 1 },
                                     onOpen = { page = it }
                                 )
                             }
