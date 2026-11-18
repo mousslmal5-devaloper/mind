@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.first
 
 private val Context.mindDataStore by preferencesDataStore(name = "mind_local_data")
 
-data class StudySession(val completedAt: Long, val durationMinutes: Int)\ndata class WaterEntry(val recordedAt: Long)
+data class StudySession(val completedAt: Long, val durationMinutes: Int)
+data class WaterEntry(val recordedAt: Long)
 
 data class MindSavedState(
     val water: Int = 0,
