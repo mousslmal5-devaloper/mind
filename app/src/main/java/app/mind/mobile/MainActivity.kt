@@ -76,7 +76,8 @@ private fun MindRoot() {
                             "home" -> HomeScreen(onOpen = { previous = "home"; page = it })
                             "habits" -> PlaceholderScreen("العادات", "إدارة العادات وتتبعها يومياً")
                             "water" -> PlaceholderScreen("الماء", "تسجيل استهلاك الماء حسب اليوم والساعة")
-                            "settings" -> PlaceholderScreen("الإعدادات", "المظهر والصوت والحساب والبيانات")
+                            "settings" -> PlaceholderScreen("الإعدادات", "المظهر والصوت والبيانات")
+                            "auth" -> AuthScreen(onSignedIn = { page = "home" })
                             else -> HomeScreen(onOpen = { previous = "home"; page = it })
                         }
                     }
@@ -128,7 +129,8 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
             QuickCard("العادات", "تتبع يومك", Modifier.weight(1f)) { onOpen("habits") }
             QuickCard("الماء", "سجل أكوابك", Modifier.weight(1f)) { onOpen("water") }
         }
-        QuickCard("الإعدادات", "الحساب والمظهر والصوت", Modifier.fillMaxWidth()) { onOpen("settings") }
+        QuickCard("الحساب", "تسجيل الدخول أو إنشاء حساب", Modifier.fillMaxWidth()) { onOpen("auth") }
+        QuickCard("الإعدادات", "المظهر والصوت والبيانات", Modifier.fillMaxWidth()) { onOpen("settings") }
     }
 }
 
@@ -160,5 +162,5 @@ private fun GlassCard(modifier: Modifier = Modifier, content: @Composable Column
 }
 
 private fun titleFor(page: String) = when(page) {
-    "habits" -> "العادات"; "water" -> "الماء"; "settings" -> "الإعدادات"; else -> "MIND"
+    "habits" -> "العادات"; "water" -> "الماء"; "settings" -> "الإعدادات"; "auth" -> "الحساب"; else -> "MIND"
 }
