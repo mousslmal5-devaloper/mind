@@ -891,7 +891,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
             Text(steps.toString(), color = Gold, fontSize = 42.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
             Text("خطوة اليوم", color = Muted)
             LinearProgressIndicator(progress = { (steps / 8000f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp).height(7.dp), color = Gold, trackColor = Color(0x22FFFFFF))
-            Text("$"+"steps / 8000", color = Muted, fontSize = 12.sp)
+            Text("${steps} / 8000 خطوة", color = Muted, fontSize = 12.sp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(if (sensorAvailable) Color(0xFF5BD68A) else Gold))
                 Text(if (sensorAvailable) "المستشعر يعمل — يتم تسجيل خطواتك تلقائياً" else "بانتظار إذن النشاط أو التحقق من وجود مستشعر الخطوات", color = Muted, fontSize = 12.sp)
