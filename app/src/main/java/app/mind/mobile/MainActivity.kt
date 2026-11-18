@@ -1081,7 +1081,7 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
                     }
                 }
                 androidx.compose.material3.LinearProgressIndicator(
-                    progress = { goalProgress },
+                    progress = goalProgress,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     color = Gold,
                     trackColor = GlassBorder
