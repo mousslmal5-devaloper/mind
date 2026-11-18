@@ -207,7 +207,8 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
         AwardGroup("fod","وجبة مسجلة",Icons.Rounded.EmojiEvents,listOf(1,10,50,100,500,1000)),
         AwardGroup("jr","يومية مكتوبة",Icons.Rounded.Star,listOf(1,7,30,100,365)),
         AwardGroup("nt","مذكرة",Icons.Rounded.Star,listOf(1,10,25,50,100)),
-        AwardGroup("day","يوم استخدام",Icons.Rounded.Star,listOf(1,7,30,100,365,730))
+        AwardGroup("day","يوم استخدام",Icons.Rounded.Star,listOf(1,7,30,100,365,730)),
+        AwardGroup("ach","إنجازاً مفتوحاً",Icons.Rounded.Star,listOf(5,10,25,50,75,90,93))
     )
     val done=Integer.bitCount(habitMask).coerceAtMost(habits.size)
     val active=buildSet { waterEntries.forEach{add(sDate(it.recordedAt))};studySessions.forEach{add(sDate(it.completedAt))};sleepSessions.forEach{add(sDate(it.endedAt))};if(done>0||steps>0)add(sDate(System.currentTimeMillis())) }.size
@@ -215,10 +216,9 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
         "wat" to waterEntries.size,"slp" to sleepSessions.size,"slh" to sleepSessions.sumOf{it.durationMinutes}/60,
         "stm" to maxOf(studyMinutes,studySessions.sumOf{it.durationMinutes}),"sts" to studySessions.size,"stp" to steps,
         "fit" to 0,"fod" to 0,"jr" to 0,"nt" to if(noteText.isBlank())0 else 1,"day" to active)
-    val all=groups.sumOf{it.levels.size}+7
-    val opened=groups.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}+listOf(5,10,25,50,75,90,93).count{threshold->
-        groups.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}>=threshold
-    }
+    val baseOpened=groups.filterNot{it.key=="ach"}.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}
+    val all=groups.sumOf{it.levels.size}
+    val opened=groups.sumOf{g->g.levels.count{if(g.key=="ach") baseOpened>=it else (values[g.key]?:0)>=it}}
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(18.dp,12.dp,18.dp,112.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
         item {Text("الإنجازات",fontSize=26.sp,fontWeight=FontWeight.ExtraBold);Text("كل خطوة تُحسب. واصل بناء تقدمك.",color=SM,fontSize=12.sp)}
         item {Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(22.dp)).padding(18.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
