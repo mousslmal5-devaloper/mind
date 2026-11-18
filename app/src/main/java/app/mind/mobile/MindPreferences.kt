@@ -12,11 +12,11 @@ import kotlinx.coroutines.flow.first
 
 private val Context.mindDataStore by preferencesDataStore(name = "mind_local_data")
 
-data class StudySession(val completedAt: Long, val durationMinutes: Int)
+data class StudySession(val completedAt: Long, val durationMinutes: Int)\ndata class WaterEntry(val recordedAt: Long)
 
 data class MindSavedState(
     val water: Int = 0,
-    val waterGoal: Int = 8,
+    val waterGoal: Int = 8,\n    val waterEntries: List<WaterEntry> = emptyList(),
     val steps: Int = 0,
     val studyMinutes: Int = 0,
     val sleepHours: Float = 0f,
@@ -41,7 +41,7 @@ private object MindPreferenceKeys {
     val focusSeconds = intPreferencesKey("focus_seconds")
     val focusMode = stringPreferencesKey("focus_mode")
     val focusDurationMinutes = intPreferencesKey("focus_duration_minutes")
-    val studySessions = stringPreferencesKey("study_sessions")
+    val studySessions = stringPreferencesKey("study_sessions")\n    val waterEntries = stringPreferencesKey("water_entries")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -60,7 +60,7 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
         focusMode = preferences[MindPreferenceKeys.focusMode]
             ?.takeIf { it == "تركيز" || it == "استراحة" } ?: "تركيز",
         focusDurationMinutes = (preferences[MindPreferenceKeys.focusDurationMinutes] ?: 25).coerceIn(1, 180),
-        studySessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]")
+        studySessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]"),\n        waterEntries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]")
     )
 }
 
@@ -78,7 +78,7 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.focusMode] =
             if (state.focusMode == "استراحة") "استراحة" else "تركيز"
         preferences[MindPreferenceKeys.focusDurationMinutes] = state.focusDurationMinutes.coerceIn(1, 180)
-        preferences[MindPreferenceKeys.studySessions] = encodeStudySessions(state.studySessions)
+        preferences[MindPreferenceKeys.studySessions] = encodeStudySessions(state.studySessions)\n        preferences[MindPreferenceKeys.waterEntries] = encodeWaterEntries(state.waterEntries)
     }
 }
 
@@ -102,4 +102,18 @@ private fun decodeStudySessions(raw: String): List<StudySession> = runCatching {
             if (timestamp > 0L && minutes in 1..180) add(StudySession(timestamp, minutes))
         }
     }.takeLast(5000)
+}.getOrDefault(emptyList())
+
+private fun encodeWaterEntries(entries: List<WaterEntry>): String = JSONArray().apply {
+    entries.takeLast(20000).forEach { put(it.recordedAt) }
+}.toString()
+
+private fun decodeWaterEntries(raw: String): List<WaterEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val timestamp = array.optLong(index, 0L)
+            if (timestamp > 0L) add(WaterEntry(timestamp))
+        }
+    }.takeLast(20000)
 }.getOrDefault(emptyList())
