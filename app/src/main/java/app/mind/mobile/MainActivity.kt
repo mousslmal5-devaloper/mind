@@ -95,9 +95,18 @@ private fun MindRoot() {
         val saved = runCatching { loadMindSavedState(context) }
             .onFailure { Log.e("MIND", "Unable to restore local app data", it) }
             .getOrDefault(MindSavedState())
-        water = saved.water
-        waterGoal = saved.waterGoal
         waterEntries = saved.waterEntries
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        // Water is a daily metric: restore only today's intake, while retaining
+        // the complete timestamped history for charts and statistics.
+        water = if (saved.waterEntries.isEmpty()) saved.water
+            else saved.waterEntries.count { it.recordedAt >= todayStart }.coerceAtMost(40)
+        waterGoal = saved.waterGoal
         steps = saved.steps
         studyMinutes = saved.studyMinutes
         sleepHours = saved.sleepHours
