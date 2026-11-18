@@ -113,14 +113,29 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
         }
         item {
             Text(if(period=="day") "ملخص اليوم" else "ملخص الأسبوع",fontSize=17.sp,fontWeight=FontWeight.Bold)
-            Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
-                rings.chunked(3).forEach { group -> Row(horizontalArrangement=Arrangement.spacedBy(9.dp)) {
-                    group.forEach { RingTile(it,Modifier.weight(1f)) }; repeat(3-group.size){Spacer(Modifier.weight(1f))}
-                } }
+            BoxWithConstraints {
+                val columns=when { maxWidth>=900.dp -> 6; maxWidth>=560.dp -> 3; else -> 2 }
+                Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                    rings.chunked(columns).forEach { group -> Row(horizontalArrangement=Arrangement.spacedBy(9.dp)) {
+                        group.forEach { RingTile(it,Modifier.weight(1f)) }; repeat(columns-group.size){Spacer(Modifier.weight(1f))}
+                    } }
+                }
             }
         }
         item { Text("المنحنيات",fontSize=17.sp,fontWeight=FontWeight.Bold) }
-        items(charts) { ChartTile(it,period) }
+        item {
+            BoxWithConstraints {
+                val columns=if(maxWidth>=760.dp) 2 else 1
+                Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    charts.chunked(columns).forEach { group ->
+                        Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                            group.forEach { ChartTile(it,period,Modifier.weight(1f)) }
+                            repeat(columns-group.size){Spacer(Modifier.weight(1f))}
+                        }
+                    }
+                }
+            }
+        }
         if(period=="week") {
             item { HabitWeekGrid(habits,habitMask,labels) }
             item { SleepWeekGrid(sleepSessions,days,labels) }
@@ -142,9 +157,9 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
         Text("هدف "+m.goal.roundToInt(),color=SM,fontSize=9.sp)
     }
 }
-@Composable private fun ChartTile(c:CMetric,period:String) {
+@Composable private fun ChartTile(c:CMetric,period:String,modifier:Modifier=Modifier) {
     val known=c.values.filterNot { it.isNaN() };val avg=known.filter { it>0 }.let { if(it.isEmpty()) 0f else it.average().toFloat() };val best=known.maxOrNull()?:0f
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) { Text(c.title,Modifier.weight(1f),fontWeight=FontWeight.Bold,fontSize=14.sp);Text((if(period=="week") known.sum() else best).roundToInt().toString()+" "+c.unit,color=c.color,fontSize=12.sp,fontWeight=FontWeight.Bold) }
         Canvas(Modifier.fillMaxWidth().height(120.dp)) {
             val l=8.dp.toPx();val r=size.width-8.dp.toPx();val t=8.dp.toPx();val b=size.height-18.dp.toPx()
@@ -191,6 +206,8 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
 }
 
 private data class AwardGroup(val key:String,val label:String,val icon:androidx.compose.ui.graphics.vector.ImageVector,val levels:List<Int>)
+private data class AwardItem(val label:String,val icon:androidx.compose.ui.graphics.vector.ImageVector,val level:Int,val current:Int)
+
 @Composable
 fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>,sleepSessions:List<SleepSession>,studyMinutes:Int,studySessions:List<StudySession>,steps:Int,noteText:String) {
     val groups=listOf(
@@ -208,39 +225,83 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
         AwardGroup("fod","وجبة مسجلة",Icons.Rounded.EmojiEvents,listOf(1,10,50,100,500,1000)),
         AwardGroup("jr","يومية مكتوبة",Icons.Rounded.Star,listOf(1,7,30,100,365)),
         AwardGroup("nt","مذكرة",Icons.Rounded.Star,listOf(1,10,25,50,100)),
-        AwardGroup("day","يوم استخدام",Icons.Rounded.Star,listOf(1,7,30,100,365,730)),
-        AwardGroup("ach","إنجازاً مفتوحاً",Icons.Rounded.Star,listOf(5,10,25,50,75,90,93))
+        AwardGroup("day","يوم استخدام",Icons.Rounded.Star,listOf(1,7,30,100,365,730))
     )
     val done=Integer.bitCount(habitMask).coerceAtMost(habits.size)
-    val active=buildSet { waterEntries.forEach{add(sDate(it.recordedAt))};studySessions.forEach{add(sDate(it.completedAt))};sleepSessions.forEach{add(sDate(it.endedAt))};if(done>0||steps>0)add(sDate(System.currentTimeMillis())) }.size
-    val values=mapOf("hab" to habits.size,"str" to 0,"chk" to done,"prf" to if(habits.isNotEmpty()&&done==habits.size)1 else 0,
-        "wat" to waterEntries.size,"slp" to sleepSessions.size,"slh" to sleepSessions.sumOf{it.durationMinutes}/60,
-        "stm" to maxOf(studyMinutes,studySessions.sumOf{it.durationMinutes}),"sts" to studySessions.size,"stp" to steps,
-        "fit" to 0,"fod" to 0,"jr" to 0,"nt" to if(noteText.isBlank())0 else 1,"day" to active)
-    val baseOpened=groups.filterNot{it.key=="ach"}.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}
-    val all=groups.sumOf{it.levels.size}
-    val opened=groups.sumOf{g->g.levels.count{if(g.key=="ach") baseOpened>=it else (values[g.key]?:0)>=it}}
+    val active=buildSet {
+        waterEntries.forEach{add(sDate(it.recordedAt))}
+        studySessions.forEach{add(sDate(it.completedAt))}
+        sleepSessions.forEach{add(sDate(it.endedAt))}
+        if(done>0||steps>0)add(sDate(System.currentTimeMillis()))
+    }.size
+    val values=mapOf(
+        "hab" to habits.size,"str" to 0,"chk" to done,
+        "prf" to if(habits.isNotEmpty()&&done==habits.size)1 else 0,
+        "wat" to waterEntries.size,"slp" to sleepSessions.size,
+        "slh" to sleepSessions.sumOf{it.durationMinutes}/60,
+        "stm" to maxOf(studyMinutes,studySessions.sumOf{it.durationMinutes}),
+        "sts" to studySessions.size,"stp" to steps,"fit" to 0,"fod" to 0,
+        "jr" to 0,"nt" to if(noteText.isBlank())0 else 1,"day" to active
+    )
+    val baseOpened=groups.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}
+    val allGroups=groups+AwardGroup("ach","إنجازاً مفتوحاً",Icons.Rounded.Star,listOf(5,10,25,50,75,90,93))
+    val items=allGroups.flatMap { g ->
+        val current=if(g.key=="ach")baseOpened else values[g.key]?:0
+        g.levels.map { AwardItem(g.label,g.icon,it,current) }
+    }
+    val unlocked=items.count{it.current>=it.level}
+    val total=items.size
+
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(18.dp,12.dp,18.dp,112.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
-        item {Text("الإنجازات",fontSize=26.sp,fontWeight=FontWeight.ExtraBold);Text("كل خطوة تُحسب. واصل بناء تقدمك.",color=SM,fontSize=12.sp)}
-        item {Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(22.dp)).padding(18.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
-            Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Rounded.EmojiEvents,null,tint=SG,modifier=Modifier.size(24.dp));Spacer(Modifier.width(9.dp));Text("الإنجازات المفتوحة",Modifier.weight(1f),fontWeight=FontWeight.Bold);Text(opened.toString()+" / "+all,color=SG,fontWeight=FontWeight.ExtraBold,fontSize=18.sp)}
-            LinearProgressIndicator(progress={opened.toFloat()/all},modifier=Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),color=SG,trackColor=Color.White.copy(alpha=.08f))
-            Text("المستويات غير المحققة تبقى ظاهرة حتى تعرف هدفك التالي.",color=SM,fontSize=11.sp)
-        }}
-        items(groups){g->
-            val groupValue=if(g.key=="ach") baseOpened else values[g.key]?:0
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(14.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
-                Row(verticalAlignment=Alignment.CenterVertically){Icon(g.icon,null,tint=SG,modifier=Modifier.size(21.dp));Spacer(Modifier.width(9.dp));Text(g.label,Modifier.weight(1f),fontWeight=FontWeight.Bold);Text(groupValue.toString(),color=SG,fontWeight=FontWeight.Bold)}
-                Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){g.levels.forEach{level->
-                    val got=groupValue>=level
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if(got)SG.copy(alpha=.16f) else Color.White.copy(alpha=.035f)).border(1.dp,if(got)SG.copy(alpha=.5f) else SB,RoundedCornerShape(10.dp)).padding(vertical=9.dp,horizontal=1.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)){
-                        Icon(Icons.Rounded.Star,null,tint=if(got)SG else SM.copy(alpha=.35f),modifier=Modifier.size(16.dp));Text(level.toString(),fontSize=9.sp,fontWeight=FontWeight.Bold,color=if(got)SG else SM)
-                    }
-                }}
-                val next=g.levels.firstOrNull{groupValue<it};val progress=if(next==null)1f else (groupValue.toFloat()/next).coerceIn(0f,1f)
-                LinearProgressIndicator(progress={progress},modifier=Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),color=SG,trackColor=Color.White.copy(alpha=.07f))
+        item {
+            Text("الإنجازات",fontSize=26.sp,fontWeight=FontWeight.ExtraBold)
+            Text("كل خطوة تُحسب. واصل بناء تقدمك.",color=SM,fontSize=12.sp)
+        }
+        item {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(SF)
+                .border(1.dp,SB,RoundedCornerShape(22.dp)).padding(18.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.EmojiEvents,null,tint=SG,modifier=Modifier.size(24.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Text("الإنجازات المفتوحة",Modifier.weight(1f),fontWeight=FontWeight.Bold)
+                    Text(unlocked.toString()+" / "+total,color=SG,fontWeight=FontWeight.ExtraBold,fontSize=18.sp)
+                }
+                LinearProgressIndicator(progress={unlocked.toFloat()/total},modifier=Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                    color=SG,trackColor=Color.White.copy(alpha=.08f))
             }
         }
-        item{Text("الوجبات والتمارين واليوميات غير مفعّلة بعد؛ لذلك لا تُمنح إنجازات لها دون بيانات فعلية.",color=SM,fontSize=10.sp)}
+        item {
+            BoxWithConstraints {
+                val columns=if(maxWidth>=700.dp)4 else 2
+                Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    items.chunked(columns).forEach { group ->
+                        Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                            group.forEach { AwardTile(it,Modifier.weight(1f)) }
+                            repeat(columns-group.size){Spacer(Modifier.weight(1f))}
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Text("الوجبات والتمارين واليوميات غير مفعّلة بعد؛ لذلك لا تُمنح إنجازات لها دون بيانات فعلية.",color=SM,fontSize=10.sp)
+        }
+    }
+}
+
+@Composable
+private fun AwardTile(item:AwardItem,modifier:Modifier=Modifier) {
+    val achieved=item.current>=item.level
+    val progress=(item.current.toFloat()/item.level).coerceIn(0f,1f)
+    Column(modifier.clip(RoundedCornerShape(18.dp))
+        .background(if(achieved)SG.copy(alpha=.09f) else SF)
+        .border(1.dp,if(achieved)SG.copy(alpha=.42f) else SB,RoundedCornerShape(18.dp))
+        .padding(vertical=13.dp,horizontal=8.dp),
+        horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
+        Icon(item.icon,null,tint=if(achieved)SG else SM.copy(alpha=.55f),modifier=Modifier.size(29.dp))
+        Text(item.level.toString(),fontSize=16.sp,fontWeight=FontWeight.ExtraBold,color=if(achieved)SG else Color.White)
+        Text(item.label,color=if(achieved)Color.White else SM,fontSize=10.sp,maxLines=2)
+        LinearProgressIndicator(progress={progress},modifier=Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+            color=if(achieved)SG else SM.copy(alpha=.45f),trackColor=Color.White.copy(alpha=.07f))
     }
 }
