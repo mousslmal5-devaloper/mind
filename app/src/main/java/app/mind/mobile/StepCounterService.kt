@@ -55,21 +55,21 @@ class StepCounterService : Service(), SensorEventListener {
         val now = System.currentTimeMillis()
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(now))
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val previousDay = prefs.getString(KEY_DAY, null)
-        var daily = prefs.getInt(KEY_DAILY, 0).coerceAtLeast(0)
-        val previousRaw = prefs.getLong(KEY_RAW, -1L)
-        var delta = 0
-        if (previousDay != today) {
-            daily = 0
-            // A new day starts a fresh app-side acknowledgement baseline too.
-            prefs.edit().putInt(KEY_SYNCED, 0).apply()
-        } else if (previousRaw >= 0L && raw >= previousRaw) {
-            delta = (raw - previousRaw).coerceAtMost(100000L).toInt()
-            daily = (daily + delta).coerceAtMost(100000)
-        }
-        prefs.edit().putString(KEY_DAY, today).putLong(KEY_RAW, raw).putInt(KEY_DAILY, daily).apply()
-        val synced = prefs.getInt(KEY_SYNCED, 0).coerceIn(0, 100000)
-        publish(true, daily, (daily - synced).coerceAtLeast(0))
+        val snapshot = StepCounterSnapshot(
+            day = prefs.getString(KEY_DAY, null),
+            rawTotal = prefs.getLong(KEY_RAW, -1L),
+            dailyTotal = prefs.getInt(KEY_DAILY, 0),
+            syncedTotal = prefs.getInt(KEY_SYNCED, 0)
+        )
+        val update = recordStepReading(snapshot, today, raw)
+        prefs.edit()
+            .putString(KEY_DAY, update.snapshot.day)
+            .putLong(KEY_RAW, update.snapshot.rawTotal)
+            .putInt(KEY_DAILY, update.snapshot.dailyTotal)
+            .putInt(KEY_SYNCED, update.snapshot.syncedTotal)
+            .apply()
+        val unsynced = (update.snapshot.dailyTotal - update.snapshot.syncedTotal).coerceAtLeast(0)
+        publish(true, update.snapshot.dailyTotal, unsynced)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
