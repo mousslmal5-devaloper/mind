@@ -40,6 +40,7 @@ class GpsWorkoutService : Service(), LocationListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!active && intent?.action != ACTION_STOP) restorePersistedWorkout()
         when (intent?.action) {
             ACTION_STOP -> stopWorkout()
             ACTION_STATUS -> {
@@ -76,16 +77,19 @@ class GpsWorkoutService : Service(), LocationListener {
         startForeground(NOTIFICATION_ID, buildNotification())
         try {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0f, this)
+            persistWorkout()
             publish(true, "جارٍ البحث عن إشارة GPS")
         } catch (security: SecurityException) {
             Log.e(TAG, "Location permission was revoked", security)
             active = false
+            clearPersistedWorkout()
             stopForegroundCompat()
             publish(false, "تعذر الوصول إلى الموقع")
             stopSelf()
         } catch (failure: Exception) {
             Log.e(TAG, "Unable to start GPS updates", failure)
             active = false
+            clearPersistedWorkout()
             stopForegroundCompat()
             publish(false, "تعذر تشغيل GPS على هذا الهاتف")
             stopSelf()
@@ -110,6 +114,7 @@ class GpsWorkoutService : Service(), LocationListener {
             distanceMeters += segment
         }
         lastAccepted = Location(location)
+        persistWorkout()
         publish(true, "GPS متصل — يتم تسجيل المسار")
         updateNotification()
     }
@@ -128,6 +133,7 @@ class GpsWorkoutService : Service(), LocationListener {
         val duration = ((SystemClock.elapsedRealtime() - startedElapsed) / 1000L).coerceAtLeast(0L)
         active = false
         runCatching { locationManager.removeUpdates(this) }
+        clearPersistedWorkout()
         publish(false, "انتهت جلسة $workoutType", completed = duration >= 5L, endedAt = endedAt)
         stopForegroundCompat()
         if (duration >= 5L && startedAtMillis > 0L) {
@@ -142,6 +148,55 @@ class GpsWorkoutService : Service(), LocationListener {
         }
     }
 
+    private fun persistWorkout() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+            .putBoolean(KEY_ACTIVE, active)
+            .putString(KEY_TYPE, workoutType)
+            .putFloat(KEY_DISTANCE, distanceMeters)
+            .putLong(KEY_STARTED_AT, startedAtMillis)
+            .putLong(KEY_STARTED_ELAPSED, startedElapsed)
+            .apply()
+    }
+
+    private fun clearPersistedWorkout() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().clear().apply()
+    }
+
+    private fun restorePersistedWorkout() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_ACTIVE, false)) return
+        val savedStartedElapsed = prefs.getLong(KEY_STARTED_ELAPSED, 0L)
+        val nowElapsed = SystemClock.elapsedRealtime()
+        // elapsedRealtime resets after reboot; never revive a stale workout from a previous boot.
+        if (savedStartedElapsed <= 0L || nowElapsed < savedStartedElapsed ||
+            checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            clearPersistedWorkout()
+            return
+        }
+        workoutType = prefs.getString(KEY_TYPE, "جري")?.takeIf { it in setOf("مشي", "جري", "دراجة") } ?: "جري"
+        distanceMeters = prefs.getFloat(KEY_DISTANCE, 0f).takeIf { it.isFinite() && it >= 0f } ?: 0f
+        startedAtMillis = prefs.getLong(KEY_STARTED_AT, 0L)
+        startedElapsed = savedStartedElapsed
+        lastAccepted = null
+        gpsReady = false
+        active = startedAtMillis > 0L
+        if (!active) {
+            clearPersistedWorkout()
+            return
+        }
+        startForeground(NOTIFICATION_ID, buildNotification())
+        try {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0f, this)
+            publish(true, "استُعيدت الجلسة — جارٍ إعادة الاتصال بـ GPS")
+        } catch (failure: Exception) {
+            Log.e(TAG, "Unable to restore GPS workout", failure)
+            active = false
+            clearPersistedWorkout()
+            stopForegroundCompat()
+            publish(false, "تعذر استعادة تتبع GPS")
+        }
+    }
     private fun publish(isActive: Boolean, message: String, completed: Boolean = false, endedAt: Long = 0L) {
         val update = Intent(ACTION_UPDATE).setPackage(packageName)
             .putExtra(EXTRA_ACTIVE, isActive)
@@ -212,5 +267,11 @@ class GpsWorkoutService : Service(), LocationListener {
         private const val NOTIFICATION_ID = 7105
         private const val MAX_ACCURACY_METERS = 35f
         private const val TAG = "MIND_GPS"
+        private const val PREFS_NAME = "mind_gps_workout_state"
+        private const val KEY_ACTIVE = "active"
+        private const val KEY_TYPE = "type"
+        private const val KEY_DISTANCE = "distance_meters"
+        private const val KEY_STARTED_AT = "started_at"
+        private const val KEY_STARTED_ELAPSED = "started_elapsed"
     }
 }
