@@ -367,6 +367,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                 "mindmap" -> MindMapScreen()
                                 "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, onSessionCompleted = { session ->
                                     workoutSessions = (workoutSessions.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000)
+                                }, onDeleteSession = { session ->
+                                    workoutSessions = workoutSessions.filterNot { it.startedAt == session.startedAt }
                                 }, onRefreshSessions = {
                                     appScope.launch { workoutSessions = loadMindSavedState(context).workoutSessions }
                                 })
@@ -892,7 +894,7 @@ private fun StudyScreen(
 }
 
 @Composable
-private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onSessionCompleted: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
+private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
     val context = LocalContext.current
     var workoutType by rememberSaveable { mutableStateOf("جري") }
     var tracking by rememberSaveable { mutableStateOf(false) }
@@ -1011,7 +1013,12 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                             val distanceLabel = if (session.distanceMeters >= 1000f) "%.2f كم".format(session.distanceKm) else "%d م".format(session.distanceMeters.toInt())
                             Text("${session.durationSeconds / 60L} دقيقة · $distanceLabel", color = Muted, fontSize = 12.sp)
                         }
-                        Text("GPS", color = Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("GPS", color = Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            TextButton(onClick = { onDeleteSession(session) }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                                Text("حذف", color = Muted, fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
             }
