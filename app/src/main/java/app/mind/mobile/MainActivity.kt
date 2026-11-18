@@ -66,6 +66,7 @@ private fun MindRoot() {
     var page by rememberSaveable { mutableStateOf("home") }
     var water by rememberSaveable { mutableIntStateOf(0) }
     var waterGoal by rememberSaveable { mutableIntStateOf(8) }
+    var waterEntries by remember { mutableStateOf<List<WaterEntry>>(emptyList()) }
     var steps by rememberSaveable { mutableIntStateOf(0) }
     var studyMinutes by rememberSaveable { mutableIntStateOf(0) }
     var sleepHours by rememberSaveable { mutableFloatStateOf(0f) }
@@ -87,6 +88,7 @@ private fun MindRoot() {
             .getOrDefault(MindSavedState())
         water = saved.water
         waterGoal = saved.waterGoal
+        waterEntries = saved.waterEntries
         steps = saved.steps
         studyMinutes = saved.studyMinutes
         sleepHours = saved.sleepHours
@@ -101,7 +103,7 @@ private fun MindRoot() {
     }
 
     LaunchedEffect(
-        stateLoaded, water, waterGoal, steps, studyMinutes, sleepHours,
+        stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours,
         habitMask, habitNames, noteText, focusSeconds, focusMode,
         focusDurationMinutes, studySessions
     ) {
@@ -112,6 +114,7 @@ private fun MindRoot() {
                     MindSavedState(
                         water = water,
                         waterGoal = waterGoal,
+                        waterEntries = waterEntries,
                         steps = steps,
                         studyMinutes = studyMinutes,
                         sleepHours = sleepHours,
@@ -191,8 +194,9 @@ private fun MindRoot() {
                                 },
                                 onToggle = { index -> habitMask = habitMask xor (1 shl index) }
                             )
-                            "water" -> WaterScreen(water, waterGoal, { water = (water + 1).coerceAtMost(40) },
-                                { water = (water - 1).coerceAtLeast(0) },
+                            "water" -> WaterScreen(water, waterGoal, waterEntries,
+                                { if (water < 40) { water += 1; waterEntries = (waterEntries + WaterEntry(System.currentTimeMillis())).takeLast(20000) } },
+                                { if (water > 0) { water -= 1; waterEntries = waterEntries.dropLast(1) } },
                                 { waterGoal = it.coerceIn(1, 20) })
                             "study" -> StudyScreen(
                                 mode = focusMode, seconds = focusSeconds, running = focusRunning,
