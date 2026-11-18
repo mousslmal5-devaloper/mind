@@ -61,6 +61,8 @@ class StepCounterService : Service(), SensorEventListener {
         var delta = 0
         if (previousDay != today) {
             daily = 0
+            // A new day starts a fresh app-side acknowledgement baseline too.
+            prefs.edit().putInt(KEY_SYNCED, 0).apply()
         } else if (previousRaw >= 0L && raw >= previousRaw) {
             delta = (raw - previousRaw).coerceAtMost(100000L).toInt()
             daily = (daily + delta).coerceAtMost(100000)
