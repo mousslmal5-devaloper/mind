@@ -79,6 +79,7 @@ private fun MindRoot() {
     var steps by rememberSaveable { mutableIntStateOf(0) }
     var stepEntries by remember { mutableStateOf<List<StepEntry>>(emptyList()) }
     var habitHistory by remember { mutableStateOf<List<HabitDayRecord>>(emptyList()) }
+    var habitDateKey by rememberSaveable { mutableStateOf(mindDateKey(System.currentTimeMillis())) }
     var studyMinutes by rememberSaveable { mutableIntStateOf(0) }
     var sleepHours by rememberSaveable { mutableFloatStateOf(0f) }
     var sleepSessions by remember { mutableStateOf<List<SleepSession>>(emptyList()) }
@@ -111,10 +112,11 @@ private fun MindRoot() {
         water = if (saved.waterEntries.isEmpty()) saved.water
             else saved.waterEntries.count { it.recordedAt >= todayStart }.coerceAtMost(40)
         waterGoal = saved.waterGoal
-        stepEntries = if (saved.stepEntries.isEmpty() && saved.steps > 0) listOf(StepEntry(System.currentTimeMillis(), saved.steps)) else saved.stepEntries
-        steps = saved.steps
-        habitHistory = saved.habitHistory
         val todayKey = mindDateKey(System.currentTimeMillis())
+        stepEntries = if (saved.stepEntries.isEmpty() && saved.steps > 0) listOf(StepEntry(System.currentTimeMillis(), saved.steps)) else saved.stepEntries
+        steps = stepEntries.filter { mindDateKey(it.recordedAt) == todayKey }.sumOf { it.delta }.coerceIn(0, 100000)
+        habitHistory = saved.habitHistory
+        habitDateKey = todayKey
         val todayHabitRecord = saved.habitHistory.lastOrNull { it.dateKey == todayKey }
         habitMask = todayHabitRecord?.completedMask ?: if (saved.habitHistory.isEmpty()) saved.habitMask else 0
         studyMinutes = saved.studyMinutes
@@ -164,14 +166,28 @@ private fun MindRoot() {
     }
     val habits = remember(habitNames) { habitNames.split("|").filter { it.isNotBlank() } }
     val toggleHabit: (Int) -> Unit = { index ->
-        val nextMask = habitMask xor (1 shl index)
-        habitMask = nextMask
         val key = mindDateKey(System.currentTimeMillis())
+        val baseMask = if (habitDateKey == key) habitMask else 0
+        val nextMask = baseMask xor (1 shl index)
+        habitDateKey = key
+        habitMask = nextMask
         habitHistory = (habitHistory.filterNot { it.dateKey == key } + HabitDayRecord(key, nextMask, habits.size)).takeLast(730)
     }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            val today = mindDateKey(System.currentTimeMillis())
+            if (today != habitDateKey) { habitDateKey = today; habitMask = 0; steps = 0 }
+        }
+    }
     val recordStepDelta: (Int) -> Unit = { delta ->
-        steps = (steps + delta).coerceIn(0, 100000)
-        stepEntries = (stepEntries + StepEntry(System.currentTimeMillis(), delta)).takeLast(30000)
+        val now = System.currentTimeMillis()
+        if (mindDateKey(now) != habitDateKey) { habitDateKey = mindDateKey(now); habitMask = 0 }
+        val applied = if (delta < 0) -minOf(-delta, steps) else minOf(delta, 100000 - steps)
+        if (applied != 0) {
+            steps = (steps + applied).coerceIn(0, 100000)
+            stepEntries = (stepEntries + StepEntry(now, applied)).takeLast(30000)
+        }
     }
 
     LaunchedEffect(focusRunning, focusSeconds) {
