@@ -239,7 +239,7 @@ private data class AwardGroup(val key:String,val label:String,val icon:androidx.
 private data class AwardItem(val label:String,val icon:androidx.compose.ui.graphics.vector.ImageVector,val level:Int,val current:Int)
 
 @Composable
-fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>,sleepSessions:List<SleepSession>,studyMinutes:Int,studySessions:List<StudySession>,steps:Int,noteText:String) {
+fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>,sleepSessions:List<SleepSession>,studyMinutes:Int,studySessions:List<StudySession>,steps:Int,noteText:String,workoutSessions:List<WorkoutSession>) {
     val groups=listOf(
         AwardGroup("hab","عادات مضافة",Icons.Rounded.CheckCircle,listOf(1,3,5,10,20,50)),
         AwardGroup("str","يوماً متتالياً",Icons.Rounded.EmojiEvents,listOf(3,7,14,30,60,100,200,365)),
@@ -261,7 +261,7 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
     val active=buildSet {
         waterEntries.forEach{add(sDate(it.recordedAt))}
         studySessions.forEach{add(sDate(it.completedAt))}
-        sleepSessions.forEach{add(sDate(it.endedAt))}
+        sleepSessions.forEach{add(sDate(it.endedAt))}\n        workoutSessions.forEach{add(sDate(it.endedAt))}
         if(done>0||steps>0)add(sDate(System.currentTimeMillis()))
     }.size
     val values=mapOf(
@@ -270,7 +270,7 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
         "wat" to waterEntries.size,"slp" to sleepSessions.size,
         "slh" to sleepSessions.sumOf{it.durationMinutes}/60,
         "stm" to maxOf(studyMinutes,studySessions.sumOf{it.durationMinutes}),
-        "sts" to studySessions.size,"stp" to steps,"fit" to 0,"fod" to 0,
+        "sts" to studySessions.size,"stp" to steps,"fit" to workoutSessions.size,"fod" to 0,
         "jr" to 0,"nt" to if(noteText.isBlank())0 else 1,"day" to active
     )
     val baseOpened=groups.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}
@@ -314,7 +314,7 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
             }
         }
         item {
-            Text("الوجبات والتمارين واليوميات غير مفعّلة بعد؛ لذلك لا تُمنح إنجازات لها دون بيانات فعلية.",color=SM,fontSize=10.sp)
+            Text("الوجبات واليوميات غير مفعّلة بعد؛ لذلك لا تُمنح إنجازات لها دون بيانات فعلية.",color=SM,fontSize=10.sp)
         }
     }
 }
