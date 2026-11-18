@@ -913,7 +913,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
             }
         }
         val filter = IntentFilter(GpsWorkoutService.ACTION_UPDATE)
-        if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED) else @Suppress("DEPRECATION") context.registerReceiver(receiver, filter)
+        context.registerReceiver(receiver, filter)
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
     LaunchedEffect(tracking) {
