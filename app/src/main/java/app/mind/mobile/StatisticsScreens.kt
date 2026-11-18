@@ -48,16 +48,16 @@ private val SPurple = Color(0xFFB78CFF)
 private val STeal = Color(0xFF4DD0C8)
 private fun sDate(t: Long) = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(t))
 private fun sHour(t: Long) = Calendar.getInstance().apply { timeInMillis=t }.get(Calendar.HOUR_OF_DAY)
-private fun sDays(): List<String> {
+private fun sDays(count: Int = 7): List<String> {
     val c=Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0) }
-    return (6 downTo 0).map { sDate((c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR,-it) }.timeInMillis) }
+    return (count - 1 downTo 0).map { sDate((c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR,-it) }.timeInMillis) }
 }
 private fun List<Float>.meanKnown(): Float { val v=filterNot { it.isNaN() }; return if(v.isEmpty()) 0f else v.average().toFloat() }
 
 @Composable
 fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,waterEntries:List<WaterEntry>,steps:Int,studySessions:List<StudySession>,sleepSessions:List<SleepSession>) {
     var period by rememberSaveable { mutableStateOf("week") }
-    val days=remember { sDays() }; val today=days.last()
+    val days=remember(period) { sDays(if (period == "month") 30 else 7) }; val today=days.last()
     val start=remember { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0) }.timeInMillis }
     val hour=Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val waterWeek=days.map { k -> (if(k==today) maxOf(water,waterEntries.count { sDate(it.recordedAt)==k }) else waterEntries.count { sDate(it.recordedAt)==k }).toFloat() }
@@ -73,7 +73,7 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
     val habitsHour=(0..23).map { if(it==hour && habitPct>0) habitPct else Float.NaN }
     val caloriesWeek=stepsWeek.map { if(it.isNaN()) Float.NaN else it*.04f }
     val caloriesHour=stepsHour.map { if(it.isNaN()) Float.NaN else it*.04f }
-    val labels=days.map { runCatching { SimpleDateFormat("EEE",Locale("ar")).format(SimpleDateFormat("yyyy-MM-dd",Locale.US).parse(it)!!) }.getOrDefault("—") }
+    val labels=days.map { runCatching { SimpleDateFormat(if(period=="month") "d" else "EEE",Locale("ar")).format(SimpleDateFormat("yyyy-MM-dd",Locale.US).parse(it)!!) }.getOrDefault("—") }
     val hLabels=(0..23).map { if(it%6==0) "%02d".format(it) else "" }
     val rings=if(period=="day") listOf(
         RMetric(steps.toFloat(),10000f,SG,steps.toString(),"الخطوات"),
@@ -83,11 +83,11 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
         RMetric(studyHour.sum(),120f,SPurple,studyHour.sum().roundToInt().toString(),"دقائق التركيز"),
         RMetric(sleepHour.sum(),8f,STeal,String.format(Locale.US,"%.1f",sleepHour.sum()),"النوم")
     ) else listOf(
-        RMetric(stepsWeek.filterNot { it.isNaN() }.sum(),70000f,SG,steps.toString(),"الخطوات"),
-        RMetric(waterWeek.sum(),(waterGoal*7).coerceAtLeast(1).toFloat(),SBlue,waterWeek.sum().roundToInt().toString(),"الماء"),
-        RMetric(caloriesWeek.filterNot { it.isNaN() }.sum(),2800f,SOrange,caloriesWeek.filterNot { it.isNaN() }.sum().roundToInt().toString(),"سعرات تقديرية"),
+        RMetric(stepsWeek.filterNot { it.isNaN() }.sum(),(10000f*days.size),SG,steps.toString(),"الخطوات"),
+        RMetric(waterWeek.sum(),(waterGoal*days.size).coerceAtLeast(1).toFloat(),SBlue,waterWeek.sum().roundToInt().toString(),"الماء"),
+        RMetric(caloriesWeek.filterNot { it.isNaN() }.sum(),400f*days.size,SOrange,caloriesWeek.filterNot { it.isNaN() }.sum().roundToInt().toString(),"سعرات تقديرية"),
         RMetric(habitsWeek.meanKnown(),100f,SGreen,habitsWeek.meanKnown().roundToInt().toString()+"%","العادات"),
-        RMetric(studyWeek.sum(),840f,SPurple,studyWeek.sum().roundToInt().toString(),"دقائق التركيز"),
+        RMetric(studyWeek.sum(),120f*days.size,SPurple,studyWeek.sum().roundToInt().toString(),"دقائق التركيز"),
         RMetric(sleepWeek.meanKnown(),8f,STeal,String.format(Locale.US,"%.1f",sleepWeek.meanKnown()),"متوسط النوم")
     )
     val charts=if(period=="day") listOf(
@@ -103,7 +103,7 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
         item { Text("الإحصائيات",fontSize=26.sp,fontWeight=FontWeight.ExtraBold);Text("تابع تقدمك واتجاهاتك بمرور الوقت",color=SM,fontSize=12.sp) }
         item {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(16.dp)).padding(4.dp)) {
-                listOf("day" to "اليوم","week" to "آخر 7 أيام").forEach { p ->
+                listOf("day" to "اليوم","week" to "7 أيام","month" to "30 يوماً").forEach { p ->
                     val chosen=period==p.first
                     Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if(chosen) SG else Color.Transparent).clickable { period=p.first }.padding(11.dp),contentAlignment=Alignment.Center) {
                         Text(p.second,color=if(chosen) Color(0xFF15130A) else SM,fontWeight=FontWeight.Bold,fontSize=13.sp)
@@ -112,7 +112,7 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
             }
         }
         item {
-            Text(if(period=="day") "ملخص اليوم" else "ملخص الأسبوع",fontSize=17.sp,fontWeight=FontWeight.Bold)
+            Text(when(period) { "day" -> "ملخص اليوم"; "month" -> "ملخص آخر 30 يوماً"; else -> "ملخص آخر 7 أيام" },fontSize=17.sp,fontWeight=FontWeight.Bold)
             BoxWithConstraints {
                 val columns=when { maxWidth>=900.dp -> 6; maxWidth>=560.dp -> 3; else -> 2 }
                 Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
@@ -160,7 +160,7 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
 @Composable private fun ChartTile(c:CMetric,period:String,modifier:Modifier=Modifier) {
     val known=c.values.filterNot { it.isNaN() };val avg=known.filter { it>0 }.let { if(it.isEmpty()) 0f else it.average().toFloat() };val best=known.maxOrNull()?:0f
     Column(modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment=Alignment.CenterVertically) { Text(c.title,Modifier.weight(1f),fontWeight=FontWeight.Bold,fontSize=14.sp);Text((if(period=="week") known.sum() else best).roundToInt().toString()+" "+c.unit,color=c.color,fontSize=12.sp,fontWeight=FontWeight.Bold) }
+        Row(verticalAlignment=Alignment.CenterVertically) { Text(c.title,Modifier.weight(1f),fontWeight=FontWeight.Bold,fontSize=14.sp);Text((if(period!="day") known.sum() else best).roundToInt().toString()+" "+c.unit,color=c.color,fontSize=12.sp,fontWeight=FontWeight.Bold) }
         Canvas(Modifier.fillMaxWidth().height(120.dp)) {
             val l=8.dp.toPx();val r=size.width-8.dp.toPx();val t=8.dp.toPx();val b=size.height-18.dp.toPx()
             repeat(3){i->val y=t+(b-t)*i/2f;drawLine(Color.White.copy(alpha=.07f),Offset(l,y),Offset(r,y),1.dp.toPx())}
@@ -169,7 +169,7 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
             c.values.forEachIndexed { i,v -> if(v.isNaN()) started=false else {val x=l+(r-l)*i/(c.values.size-1).coerceAtLeast(1);val y=b-(b-t)*v/max;if(!started){path.moveTo(x,y);started=true}else path.lineTo(x,y);drawCircle(c.color,3.dp.toPx(),Offset(x,y))} }
             drawPath(path,c.color,style=Stroke(2.5.dp.toPx(),cap=StrokeCap.Round))
         }
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){c.labels.forEachIndexed{i,s->if(s.isNotBlank()&&(period=="day"||i%2==0||i==c.labels.lastIndex))Text(s,color=SM,fontSize=9.sp)}}
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){c.labels.forEachIndexed{i,s->if(s.isNotBlank()&&(period=="day"||(period=="month" && (i%5==0||i==c.labels.lastIndex))||(period=="week" && (i%2==0||i==c.labels.lastIndex))))Text(s,color=SM,fontSize=9.sp)}}
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){FootStat("المتوسط",String.format(Locale.US,"%.1f",avg));FootStat("الأعلى",String.format(Locale.US,"%.1f",best));FootStat("نقاط البيانات",known.size.toString()+"/"+c.values.size)}
     }
 }
