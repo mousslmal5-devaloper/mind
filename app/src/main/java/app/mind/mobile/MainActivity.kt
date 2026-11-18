@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.app.TimePickerDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
@@ -1043,6 +1044,7 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
     val activeMinutes = if (active) ((clockNow - activeStartedAt).coerceAtLeast(0L) / 60_000L) else 0L
     val latest = sessions.maxByOrNull { it.endedAt }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { SleepAlarmCard() }
         item {
             GlassCard {
                 Text("النوم", fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -1160,6 +1162,46 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
                 }
             }
         }
+    }
+}
+
+
+@Composable
+private fun SleepAlarmCard() {
+    val context = LocalContext.current
+    var settings by remember { mutableStateOf(SleepAlarm.read(context)) }
+    val timeLabel = "%02d:%02d".format(settings.hour, settings.minute)
+    GlassCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("منبّه الاستيقاظ", color = Gold, fontWeight = FontWeight.Bold)
+                Text(if (settings.enabled) "مفعّل يومياً · $timeLabel" else "غير مفعّل · الوقت المحدد $timeLabel", color = Muted, fontSize = 12.sp)
+            }
+            Switch(
+                checked = settings.enabled,
+                onCheckedChange = { enabled ->
+                    SleepAlarm.saveAndSchedule(context, settings.hour, settings.minute, enabled)
+                    settings = settings.copy(enabled = enabled)
+                },
+                colors = SwitchDefaults.colors(checkedThumbColor = Ink, checkedTrackColor = Gold)
+            )
+        }
+        OutlinedButton(
+            onClick = {
+                TimePickerDialog(
+                    context,
+                    { _, hour, minute ->
+                        SleepAlarm.saveAndSchedule(context, hour, minute, settings.enabled)
+                        settings = settings.copy(hour = hour, minute = minute)
+                    },
+                    settings.hour,
+                    settings.minute,
+                    true
+                ).show()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("ضبط الوقت · $timeLabel", color = Gold) }
+        Text("يعمل يومياً ويُعاد ضبطه بعد إعادة تشغيل الهاتف. يعتمد التنبيه على إشعارات الجهاز.", color = Muted, fontSize = 10.sp)
     }
 }
 
