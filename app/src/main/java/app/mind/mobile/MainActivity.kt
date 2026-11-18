@@ -70,6 +70,8 @@ private fun MindRoot() {
     var steps by rememberSaveable { mutableIntStateOf(0) }
     var studyMinutes by rememberSaveable { mutableIntStateOf(0) }
     var sleepHours by rememberSaveable { mutableFloatStateOf(0f) }
+    var sleepSessions by remember { mutableStateOf<List<SleepSession>>(emptyList()) }
+    var activeSleepStartedAt by rememberSaveable { mutableLongStateOf(0L) }
     var habitMask by rememberSaveable { mutableIntStateOf(0) }
     var habitNames by rememberSaveable { mutableStateOf("الاستيقاظ مبكراً|قراءة|الرياضة|التعلم") }
     var newHabit by rememberSaveable { mutableStateOf("") }
@@ -92,6 +94,8 @@ private fun MindRoot() {
         steps = saved.steps
         studyMinutes = saved.studyMinutes
         sleepHours = saved.sleepHours
+        sleepSessions = saved.sleepSessions
+        activeSleepStartedAt = saved.activeSleepStartedAt
         habitMask = saved.habitMask
         habitNames = saved.habitNames
         noteText = saved.noteText
@@ -103,7 +107,7 @@ private fun MindRoot() {
     }
 
     LaunchedEffect(
-        stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours,
+        stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
         habitMask, habitNames, noteText, focusSeconds, focusMode,
         focusDurationMinutes, studySessions
     ) {
@@ -118,6 +122,8 @@ private fun MindRoot() {
                         steps = steps,
                         studyMinutes = studyMinutes,
                         sleepHours = sleepHours,
+                        sleepSessions = sleepSessions,
+                        activeSleepStartedAt = activeSleepStartedAt,
                         habitMask = habitMask,
                         habitNames = habitNames,
                         noteText = noteText,
@@ -212,7 +218,22 @@ private fun MindRoot() {
                             "mindmap" -> MindMapScreen()
                             "fitness" -> FitnessScreen(steps, { steps = (steps + 500).coerceAtMost(100000) },
                                 { steps = (steps - 500).coerceAtLeast(0) })
-                            "sleep" -> SleepScreen(sleepHours, { sleepHours = it })
+                            "sleep" -> SleepScreen(
+    hours = sleepHours,
+    sessions = sleepSessions,
+    activeStartedAt = activeSleepStartedAt,
+    onStart = { if (activeSleepStartedAt == 0L) activeSleepStartedAt = System.currentTimeMillis() },
+    onWake = {
+        val now = System.currentTimeMillis()
+        val elapsed = (now - activeSleepStartedAt) / 60000L
+        if (activeSleepStartedAt > 0L && elapsed in 1..960) {
+            sleepSessions = (sleepSessions + SleepSession(activeSleepStartedAt, now)).takeLast(2000)
+            sleepHours = elapsed / 60f
+            activeSleepStartedAt = 0L
+        }
+    },
+    onDelete = { session -> sleepSessions = sleepSessions.filterNot { it.startedAt == session.startedAt } }
+)
                             "notes" -> NotesScreen(noteText, { noteText = it })
                             "settings" -> SettingsScreen(onAccount = { page = "auth" })
                             "auth" -> AuthScreen(onSignedIn = { page = "home" })
@@ -562,15 +583,49 @@ private fun FitnessScreen(steps: Int, add: () -> Unit, remove: () -> Unit) {
 }
 
 @Composable
-private fun SleepScreen(hours: Float, onHours: (Float) -> Unit) {
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        GlassCard {
-            Text("النوم", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text("سجل مدة نومك", color = Muted)
-            Text("%.1f ساعة".format(hours), color = Gold, fontSize = 34.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 18.dp))
-            Slider(value = hours, onValueChange = onHours, valueRange = 0f..16f,
-                colors = SliderDefaults.colors(thumbColor = Gold, activeTrackColor = Gold))
-            Text("الهدف المرجعي: 8 ساعات", color = Muted, fontSize = 12.sp)
+private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStartedAt: Long, onStart: () -> Unit, onWake: () -> Unit, onDelete: (SleepSession) -> Unit) {
+    val active = activeStartedAt > 0L
+    val latest = sessions.maxByOrNull { it.endedAt }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            GlassCard {
+                Text("النوم", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("سجّل بداية نومك واستيقاظك لاحتساب المدة تلقائياً", color = Muted, fontSize = 13.sp)
+                Text(if (active) "بدأت جلسة النوم" else "%.1f ساعة".format(hours), color = Gold, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                if (active) {
+                    val started = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(activeStartedAt))
+                    Text("وقت البداية: $started", color = Muted, fontSize = 12.sp)
+                    Button(onClick = onWake, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("تسجيل الاستيقاظ") }
+                } else {
+                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("بدء النوم") }
+                }
+                Text("الهدف المرجعي: 8 ساعات · المدة المقبولة للجلسة: حتى 16 ساعة", color = Muted, fontSize = 11.sp)
+            }
+        }
+        item {
+            GlassCard {
+                Text("ملخص النوم", color = Gold, fontWeight = FontWeight.Bold)
+                Text("عدد الجلسات: ${sessions.size}")
+                Text(latest?.let { "آخر جلسة: %.1f ساعة".format(it.durationMinutes / 60f) } ?: "لا توجد جلسات مسجلة بعد", color = Muted, fontSize = 12.sp)
+            }
+        }
+        item { Text("سجل النوم", color = Gold, fontWeight = FontWeight.Bold) }
+        if (sessions.isEmpty()) {
+            item { Text("ستظهر جلسات نومك هنا بعد تسجيل الاستيقاظ.", color = Muted, fontSize = 13.sp) }
+        } else {
+            items(sessions.sortedByDescending { it.endedAt }) { session ->
+                val formatter = java.text.SimpleDateFormat("dd/MM/yyyy · HH:mm", java.util.Locale.getDefault())
+                Surface(color = Glass, shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("%.1f ساعة".format(session.durationMinutes / 60f), color = Gold, fontWeight = FontWeight.Bold)
+                            Text("من ${formatter.format(java.util.Date(session.startedAt))}", color = Muted, fontSize = 11.sp)
+                            Text("إلى ${formatter.format(java.util.Date(session.endedAt))}", color = Muted, fontSize = 11.sp)
+                        }
+                        TextButton(onClick = { onDelete(session) }) { Text("حذف", color = Muted) }
+                    }
+                }
+            }
         }
     }
 }
