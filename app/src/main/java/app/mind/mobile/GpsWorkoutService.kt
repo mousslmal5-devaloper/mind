@@ -23,6 +23,7 @@ class GpsWorkoutService : Service(), LocationListener {
     private var workoutType = "جري"
     private var distanceMeters = 0f
     private var startedElapsed = 0L
+    private var startedAtMillis = 0L
     private var lastAccepted: Location? = null
     private var gpsReady = false
 
@@ -54,6 +55,7 @@ class GpsWorkoutService : Service(), LocationListener {
         }
         distanceMeters = 0f
         startedElapsed = SystemClock.elapsedRealtime()
+        startedAtMillis = System.currentTimeMillis()
         lastAccepted = null
         gpsReady = false
         active = true
@@ -109,20 +111,26 @@ class GpsWorkoutService : Service(), LocationListener {
             stopSelf()
             return
         }
+        val endedAt = System.currentTimeMillis()
+        val duration = ((SystemClock.elapsedRealtime() - startedElapsed) / 1000L).coerceAtLeast(0L)
         active = false
         runCatching { locationManager.removeUpdates(this) }
-        publish(false, "انتهت جلسة $workoutType")
+        publish(false, "انتهت جلسة $workoutType", completed = duration >= 5L, endedAt = endedAt)
         stopForegroundCompat()
         stopSelf()
     }
 
-    private fun publish(isActive: Boolean, message: String) {
+    private fun publish(isActive: Boolean, message: String, completed: Boolean = false, endedAt: Long = 0L) {
         val update = Intent(ACTION_UPDATE).setPackage(packageName)
             .putExtra(EXTRA_ACTIVE, isActive)
             .putExtra(EXTRA_DISTANCE, distanceMeters)
             .putExtra(EXTRA_ELAPSED, if (startedElapsed > 0L) (SystemClock.elapsedRealtime() - startedElapsed) / 1000L else 0L)
             .putExtra(EXTRA_GPS_READY, gpsReady)
             .putExtra(EXTRA_MESSAGE, message)
+            .putExtra(EXTRA_COMPLETED, completed)
+            .putExtra(EXTRA_STARTED_AT, startedAtMillis)
+            .putExtra(EXTRA_ENDED_AT, endedAt)
+            .putExtra(EXTRA_TYPE, workoutType)
         sendBroadcast(update)
     }
 
@@ -173,6 +181,9 @@ class GpsWorkoutService : Service(), LocationListener {
         const val EXTRA_ELAPSED = "elapsed_seconds"
         const val EXTRA_GPS_READY = "gps_ready"
         const val EXTRA_MESSAGE = "message"
+        const val EXTRA_COMPLETED = "completed"
+        const val EXTRA_STARTED_AT = "started_at"
+        const val EXTRA_ENDED_AT = "ended_at"
         private const val CHANNEL_ID = "mind_gps_tracking"
         private const val NOTIFICATION_ID = 7105
         private const val MAX_ACCURACY_METERS = 35f
