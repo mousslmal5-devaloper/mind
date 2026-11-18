@@ -55,6 +55,9 @@ private val Ink = Color(0xFF0D0D0F)
 private val Muted = Color(0xFFA2A2AB)
 private val Glass = Color(0x0EFFFFFF)
 private val GlassBorder = Color(0x17FFFFFF)
+private val CairoFamily = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(R.font.cairo_variable, weight = FontWeight.Normal)
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -166,6 +169,9 @@ private fun MindRoot() {
         onPrimary = Color(0xFF15130A), onBackground = Color(0xFFF4F4F6),
         onSurface = Color(0xFFF4F4F6)
     )) {
+        CompositionLocalProvider(
+            LocalTextStyle provides MaterialTheme.typography.bodyLarge.copy(fontFamily = CairoFamily)
+        ) {
         BoxWithConstraints(Modifier.fillMaxSize().background(Ink)) {
             val wideLayout = maxWidth >= 700.dp
             val expandedRail = maxWidth >= 1000.dp
@@ -275,6 +281,7 @@ private fun MindRoot() {
                     }
                 }
             }
+        }
         }
     }
 }
