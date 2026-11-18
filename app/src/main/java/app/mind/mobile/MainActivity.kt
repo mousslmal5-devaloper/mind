@@ -191,7 +191,7 @@ private fun MindRoot() {
                         label = "mind-screen"
                     ) { target ->
                         Column(Modifier.fillMaxSize()) {
-                            if (target != "home") {
+                            if (target !in setOf("home", "habits", "stats", "awards", "me")) {
                                 Row(
                                     Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -213,7 +213,7 @@ private fun MindRoot() {
                                             waterEntries = (waterEntries + WaterEntry(System.currentTimeMillis())).takeLast(20000)
                                         }
                                     },
-                                    onWaterRemove = { if (water > 0) water -= 1 },
+                                    onWaterRemove = { if (water > 0) { water -= 1; if (waterEntries.isNotEmpty()) waterEntries = waterEntries.dropLast(1) } },
                                     onOpen = { page = it }
                                 )
                                 "habits" -> HabitsScreen(
