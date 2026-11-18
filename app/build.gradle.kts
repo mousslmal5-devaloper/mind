@@ -29,7 +29,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("com.google.firebase:firebase-bom:32.8.1")
     implementation("com.google.firebase:firebase-auth:22.3.1")
-    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-firestore:24.11.1")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
