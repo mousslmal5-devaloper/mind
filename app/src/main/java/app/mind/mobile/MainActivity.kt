@@ -1089,6 +1089,59 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
                 Text("المتوسط محسوب من الجلسات المسجلة فقط، ولا تُضاف بيانات تقديرية.", color = Muted, fontSize = 10.sp)
             }
         }
+        item {
+            val weeklySleep = remember(sessions) {
+                val now = java.util.Calendar.getInstance()
+                val today = (now.clone() as java.util.Calendar).apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }
+                (6 downTo 0).map { daysAgo ->
+                    val dayStart = (today.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, -daysAgo) }.timeInMillis
+                    val dayEnd = (today.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, 1 - daysAgo) }.timeInMillis
+                    val minutes = sessions.sumOf { session ->
+                        (minOf(session.endedAt, dayEnd) - maxOf(session.startedAt, dayStart)).coerceAtLeast(0L) / 60_000L
+                    }
+                    val label = java.text.SimpleDateFormat("EEE", java.util.Locale("ar")).format(java.util.Date(dayStart))
+                    Triple(label, minutes, dayStart)
+                }
+            }
+            val maxMinutes = maxOf(480L, weeklySleep.maxOfOrNull { it.second } ?: 0L)
+            GlassCard {
+                Text("النوم خلال آخر 7 أيام", color = Gold, fontWeight = FontWeight.Bold)
+                Text("المدة موزعة حسب اليوم اعتماداً على جلساتك المسجلة فقط", color = Muted, fontSize = 11.sp)
+                Row(
+                    Modifier.fillMaxWidth().height(132.dp).padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    weeklySleep.forEach { (label, minutes, _) ->
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Bottom
+                        ) {
+                            Text(if (minutes > 0L) "%.1f".format(minutes / 60f) else "—", color = Muted, fontSize = 9.sp)
+                            Box(
+                                Modifier.weight(1f).fillMaxWidth().padding(top = 5.dp, bottom = 5.dp)
+                                    .background(GlassBorder, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                Box(
+                                    Modifier.fillMaxWidth(0.62f)
+                                        .fillMaxHeight((minutes.toFloat() / maxMinutes.toFloat()).coerceIn(0.025f, 1f))
+                                        .background(Gold, RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp))
+                                )
+                            }
+                            Text(label, color = Muted, fontSize = 9.sp)
+                        }
+                    }
+                }
+                Text("الساعات فوق الأعمدة؛ قد يكون اليوم بلا بيانات إذا لم تسجل جلسة.", color = Muted, fontSize = 10.sp)
+            }
+        }
         item { Text("سجل النوم", color = Gold, fontWeight = FontWeight.Bold) }
         if (sessions.isEmpty()) {
             item { Text("ستظهر جلسات نومك هنا بعد تسجيل الاستيقاظ.", color = Muted, fontSize = 13.sp) }
