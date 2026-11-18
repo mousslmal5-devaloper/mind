@@ -150,6 +150,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var focusMode by rememberSaveable { mutableStateOf("تركيز") }
     var focusDurationMinutes by rememberSaveable { mutableIntStateOf(25) }
     var studySessions by remember { mutableStateOf<List<StudySession>>(emptyList()) }
+    var workoutSessions by remember { mutableStateOf<List<WorkoutSession>>(emptyList()) }
     val context = LocalContext.current
     var stateLoaded by rememberSaveable { mutableStateOf(false) }
 
@@ -186,6 +187,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         focusMode = saved.focusMode
         focusDurationMinutes = saved.focusDurationMinutes
         studySessions = saved.studySessions
+        workoutSessions = saved.workoutSessions
         stateLoaded = true
     }
 
@@ -202,7 +204,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     LaunchedEffect(
         stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
         habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode,
-        focusDurationMinutes, studySessions
+        focusDurationMinutes, studySessions, workoutSessions
     ) {
         if (stateLoaded) {
             runCatching {
@@ -226,7 +228,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                         focusSeconds = focusSeconds,
                         focusMode = focusMode,
                         focusDurationMinutes = focusDurationMinutes,
-                        studySessions = studySessions
+                        studySessions = studySessions,
+                        workoutSessions = workoutSessions
                     )
                 )
             }.onFailure { Log.e("MIND", "Unable to persist local app data", it) }
@@ -360,7 +363,9 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
                                 )
                                 "mindmap" -> MindMapScreen()
-                                "fitness" -> FitnessScreen(steps, stepSensorAvailable)
+                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions) { session ->
+                                    workoutSessions = (workoutSessions + session).takeLast(2000)
+                                }
                                 "sleep" -> SleepScreen(
                                     hours = sleepHours, sessions = sleepSessions,
                                     activeStartedAt = activeSleepStartedAt,
@@ -883,7 +888,7 @@ private fun StudyScreen(
 }
 
 @Composable
-private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
+private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onSessionCompleted: (WorkoutSession) -> Unit) {
     val context = LocalContext.current
     var workoutType by rememberSaveable { mutableStateOf("جري") }
     var tracking by rememberSaveable { mutableStateOf(false) }
@@ -910,6 +915,16 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
                 elapsedSeconds = intent.getLongExtra(GpsWorkoutService.EXTRA_ELAPSED, 0L)
                 gpsReady = intent.getBooleanExtra(GpsWorkoutService.EXTRA_GPS_READY, false)
                 gpsMessage = intent.getStringExtra(GpsWorkoutService.EXTRA_MESSAGE) ?: gpsMessage
+                if (intent.getBooleanExtra(GpsWorkoutService.EXTRA_COMPLETED, false)) {
+                    val started = intent.getLongExtra(GpsWorkoutService.EXTRA_STARTED_AT, 0L)
+                    val ended = intent.getLongExtra(GpsWorkoutService.EXTRA_ENDED_AT, 0L)
+                    val type = intent.getStringExtra(GpsWorkoutService.EXTRA_TYPE) ?: "جري"
+                    val distance = intent.getFloatExtra(GpsWorkoutService.EXTRA_DISTANCE, 0f)
+                    val duration = intent.getLongExtra(GpsWorkoutService.EXTRA_ELAPSED, 0L)
+                    if (started > 0L && ended > started && duration >= 5L) {
+                        onSessionCompleted(WorkoutSession(started, ended, type, distance, duration))
+                    }
+                }
             }
         }
         val filter = IntentFilter(GpsWorkoutService.ACTION_UPDATE)
@@ -970,6 +985,29 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean) {
                 Text("خطوات اليوم", color = Gold, fontWeight = FontWeight.Bold)
                 Text(steps.toString(), color = Gold, fontSize = 36.sp, fontWeight = FontWeight.Bold)
                 Text(if (sensorAvailable) "تُقاس تلقائياً من مستشعر الخطوات" else "مستشعر الخطوات غير متاح حالياً", color = Muted, fontSize = 12.sp)
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("سجل النشاط", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("تُحفظ الجلسات على هذا الجهاز تلقائياً", color = Muted, fontSize = 11.sp)
+            }
+        }
+        if (sessions.isEmpty()) {
+            item { GlassCard { Text("لا توجد جلسات محفوظة بعد", color = Muted, fontSize = 13.sp) } }
+        } else {
+            items(sessions.sortedByDescending { it.endedAt }.take(50)) { session ->
+                GlassCard {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(session.type, fontWeight = FontWeight.Bold)
+                            Text(java.text.SimpleDateFormat("dd/MM/yyyy · HH:mm", java.util.Locale("ar")).format(java.util.Date(session.startedAt)), color = Muted, fontSize = 11.sp)
+                            val distanceLabel = if (session.distanceMeters >= 1000f) "%.2f كم".format(session.distanceKm) else "%d م".format(session.distanceMeters.toInt())
+                            Text("${session.durationSeconds / 60L} دقيقة · $distanceLabel", color = Muted, fontSize = 12.sp)
+                        }
+                        Text("GPS", color = Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
             }
         }
         item { Text("ملاحظة: قياس المسافة يحتاج رؤية واضحة للأقمار الصناعية. قد تتأخر القراءة داخل المباني، ولن تُحتسب المواقع غير الدقيقة.", color = Muted, fontSize = 12.sp) }
