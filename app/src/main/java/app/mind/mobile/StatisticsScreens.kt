@@ -142,7 +142,7 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
                 }
             }
         }
-        if(period!="day") {
+        if(period=="week") {
             item { HabitWeekGrid(habits,habitMask,days,labels,habitHistory) }
             item { SleepWeekGrid(sleepSessions,days,labels) }
         }
