@@ -35,6 +35,10 @@ class StepCounterService : Service(), SensorEventListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(System.currentTimeMillis()))
+        if (prefs.getString(KEY_DAY, null) != today) {
+            prefs.edit().putString(KEY_DAY, today).putInt(KEY_DAILY, 0).putInt(KEY_SYNCED, 0).apply()
+        }
         if (intent?.action == ACTION_ACK) {
             prefs.edit().putInt(KEY_SYNCED, intent.getIntExtra(EXTRA_TOTAL, 0).coerceIn(0, 100000)).apply()
         } else {
