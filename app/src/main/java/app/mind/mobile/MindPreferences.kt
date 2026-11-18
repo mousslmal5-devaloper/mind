@@ -203,6 +203,13 @@ private fun decodeSleepSessions(raw: String): List<SleepSession> = runCatching {
         }
     }.takeLast(2000)
 }.getOrDefault(emptyList())
+suspend fun appendWorkoutSession(context: Context, session: WorkoutSession) {
+    context.applicationContext.mindDataStore.edit { preferences ->
+        val existing = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]")
+        preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions((existing.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000))
+    }
+}
+
 private fun encodeWorkoutSessions(sessions: List<WorkoutSession>): String = JSONArray().apply {
     sessions.takeLast(2000).forEach { session -> put(JSONObject().put("startedAt", session.startedAt).put("endedAt", session.endedAt).put("type", session.type).put("distanceMeters", session.distanceMeters.coerceIn(0f, 2000000f).toDouble()).put("durationSeconds", session.durationSeconds.coerceIn(1L, 172800L))) }
 }.toString()
