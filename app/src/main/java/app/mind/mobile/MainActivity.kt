@@ -349,7 +349,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                 "awards" -> AwardsScreen(
                                     habits = habits, habitMask = habitMask, waterEntries = waterEntries,
                                     sleepSessions = sleepSessions, studyMinutes = studyMinutes,
-                                    studySessions = studySessions, steps = steps, noteText = noteText
+                                    studySessions = studySessions, steps = steps, noteText = noteText, workoutSessions = workoutSessions
                                 )
                                 "study" -> StudyScreen(
                                     mode = focusMode, seconds = focusSeconds, running = focusRunning,
