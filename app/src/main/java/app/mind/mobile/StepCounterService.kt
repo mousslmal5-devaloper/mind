@@ -27,10 +27,14 @@ class StepCounterService : Service(), SensorEventListener {
         val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
         if (sensor == null) {
             publish(false, 0, 0)
+            stopUnavailableService()
             return
         }
         registered = sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
-        if (!registered) publish(false, 0, 0)
+        if (!registered) {
+            publish(false, 0, 0)
+            stopUnavailableService()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -73,6 +77,16 @@ class StepCounterService : Service(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    private fun stopUnavailableService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf()
+    }
 
     private fun publish(supported: Boolean, total: Int, delta: Int) {
         sendBroadcast(Intent(ACTION_STEP_UPDATE).setPackage(packageName)
