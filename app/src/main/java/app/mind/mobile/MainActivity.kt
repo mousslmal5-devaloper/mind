@@ -1138,15 +1138,15 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
             GlassCard {
                 Text(mindText("ملخص النوم", "Sleep summary"), color = Gold, fontWeight = FontWeight.Bold)
                 Text(mindText("عدد الجلسات: ${sessions.size}", "Sessions: ${sessions.size}"))
-                Text(latest?.let { "آخر جلسة: %.1f ساعة".format(it.durationMinutes / 60f) } ?: "لا توجد جلسات مسجلة بعد", color = Muted, fontSize = 12.sp)
+                Text(latest?.let { mindText("آخر جلسة: %.1f ساعة", "Last session: %.1f hours").format(it.durationMinutes / 60f) } ?: mindText("لا توجد جلسات مسجلة بعد", "No sessions recorded yet"), color = Muted, fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("متوسط آخر 7 جلسات", color = Muted, fontSize = 11.sp)
+                        Text(mindText("متوسط آخر 7 جلسات", "Average of last 7 sessions"), color = Muted, fontSize = 11.sp)
                         Text(averageMinutes?.let { mindText("%.1f ساعة", "%.1f hours").format(it / 60.0) } ?: "—", color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("مقارنة بهدف 8 ساعات", color = Muted, fontSize = 11.sp)
+                        Text(mindText("مقارنة بهدف 8 ساعات", "Compared with the 8-hour goal"), color = Muted, fontSize = 11.sp)
                         Text(averageMinutes?.let { "${(it / 480.0 * 100).toInt()}%" } ?: "—", color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1156,7 +1156,7 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
                     color = Gold,
                     trackColor = GlassBorder
                 )
-                Text("المتوسط محسوب من الجلسات المسجلة فقط، ولا تُضاف بيانات تقديرية.", color = Muted, fontSize = 10.sp)
+                Text(mindText("المتوسط محسوب من الجلسات المسجلة فقط، ولا تُضاف بيانات تقديرية.", "Average is based only on recorded sessions; no estimated data is added."), color = Muted, fontSize = 10.sp)
             }
         }
         item {
@@ -1180,8 +1180,8 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
             }
             val maxMinutes = maxOf(480L, weeklySleep.maxOfOrNull { it.second } ?: 0L)
             GlassCard {
-                Text("النوم خلال آخر 7 أيام", color = Gold, fontWeight = FontWeight.Bold)
-                Text("المدة موزعة حسب اليوم اعتماداً على جلساتك المسجلة فقط", color = Muted, fontSize = 11.sp)
+                Text(mindText("النوم خلال آخر 7 أيام", "Sleep over the last 7 days"), color = Gold, fontWeight = FontWeight.Bold)
+                Text(mindText("المدة موزعة حسب اليوم اعتماداً على جلساتك المسجلة فقط", "Duration by day, based only on your recorded sessions"), color = Muted, fontSize = 11.sp)
                 Row(
                     Modifier.fillMaxWidth().height(132.dp).padding(top = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1209,12 +1209,12 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
                         }
                     }
                 }
-                Text("الساعات فوق الأعمدة؛ قد يكون اليوم بلا بيانات إذا لم تسجل جلسة.", color = Muted, fontSize = 10.sp)
+                Text(mindText("الساعات فوق الأعمدة؛ قد يكون اليوم بلا بيانات إذا لم تسجل جلسة.", "Hours are shown above each bar; a day may have no data if no session was recorded."), color = Muted, fontSize = 10.sp)
             }
         }
-        item { Text("سجل النوم", color = Gold, fontWeight = FontWeight.Bold) }
+        item { Text(mindText("سجل النوم", "Sleep history"), color = Gold, fontWeight = FontWeight.Bold) }
         if (sessions.isEmpty()) {
-            item { Text("ستظهر جلسات نومك هنا بعد تسجيل الاستيقاظ.", color = Muted, fontSize = 13.sp) }
+            item { Text(mindText("ستظهر جلسات نومك هنا بعد تسجيل الاستيقاظ.", "Your sleep sessions will appear here after you record a wake-up."), color = Muted, fontSize = 13.sp) }
         } else {
             items(sessions.sortedByDescending { it.endedAt }) { session ->
                 val formatter = java.text.SimpleDateFormat("dd/MM/yyyy · HH:mm", java.util.Locale.getDefault())
@@ -1222,8 +1222,8 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
                     Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(mindText("%.1f ساعة", "%.1f hours").format(session.durationMinutes / 60f), color = Gold, fontWeight = FontWeight.Bold)
-                            Text("من ${formatter.format(java.util.Date(session.startedAt))}", color = Muted, fontSize = 11.sp)
-                            Text("إلى ${formatter.format(java.util.Date(session.endedAt))}", color = Muted, fontSize = 11.sp)
+                            Text(mindText("من ${formatter.format(java.util.Date(session.startedAt))}", "From ${formatter.format(java.util.Date(session.startedAt))}"), color = Muted, fontSize = 11.sp)
+                            Text(mindText("إلى ${formatter.format(java.util.Date(session.endedAt))}", "To ${formatter.format(java.util.Date(session.endedAt))}"), color = Muted, fontSize = 11.sp)
                         }
                         TextButton(onClick = { onDelete(session) }) { Text(mindText("حذف", "Delete"), color = Muted) }
                     }
@@ -1257,15 +1257,15 @@ private fun SleepAlarmCard() {
         }
     }
     val soundLabel = when (settings.sound) {
-        "beep" -> "نغمة هادئة"
-        "file" -> "من ملفاتي"
-        else -> "بلا صوت (اهتزاز)"
+        "beep" -> mindText("نغمة هادئة", "Gentle tone")
+        "file" -> mindText("من ملفاتي", "From my files")
+        else -> mindText("بلا صوت (اهتزاز)", "Silent (vibration)")
     }
     GlassCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("منبّه الاستيقاظ", color = Gold, fontWeight = FontWeight.Bold)
-                Text(if (settings.enabled) "مفعّل يومياً · $timeLabel" else "غير مفعّل · الوقت المحدد $timeLabel", color = Muted, fontSize = 12.sp)
+                Text(mindText("منبّه الاستيقاظ", "Wake-up alarm"), color = Gold, fontWeight = FontWeight.Bold)
+                Text(if (settings.enabled) mindText("مفعّل يومياً · $timeLabel", "Enabled daily · $timeLabel") else mindText("غير مفعّل · الوقت المحدد $timeLabel", "Disabled · Set time $timeLabel"), color = Muted, fontSize = 12.sp)
             }
             Switch(
                 checked = settings.enabled,
@@ -1293,11 +1293,11 @@ private fun SleepAlarmCard() {
         ) { Text("ضبط الوقت · $timeLabel", color = Gold) }
         Box(Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = { soundMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("صوت المنبّه · $soundLabel", color = Gold)
+                Text(mindText("صوت المنبّه · $soundLabel", "Alarm sound · $soundLabel"), color = Gold)
             }
             DropdownMenu(expanded = soundMenuExpanded, onDismissRequest = { soundMenuExpanded = false }) {
                 DropdownMenuItem(
-                    text = { Text("بلا صوت (اهتزاز)") },
+                    text = { Text(mindText("بلا صوت (اهتزاز)", "Silent (vibration)")) },
                     onClick = {
                         soundMenuExpanded = false
                         SleepAlarm.saveSound(context, "none")
@@ -1305,7 +1305,7 @@ private fun SleepAlarmCard() {
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("نغمة هادئة") },
+                    text = { Text(mindText("نغمة هادئة", "Gentle tone")) },
                     onClick = {
                         soundMenuExpanded = false
                         SleepAlarm.saveSound(context, "beep")
@@ -1313,7 +1313,7 @@ private fun SleepAlarmCard() {
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("اختيار ملف صوتي") },
+                    text = { Text(mindText("اختيار ملف صوتي", "Choose audio file")) },
                     onClick = {
                         soundMenuExpanded = false
                         soundPicker.launch(arrayOf("audio/*"))
@@ -1322,21 +1322,21 @@ private fun SleepAlarmCard() {
             }
         }
         if (settings.sound == "file") {
-            Text(settings.soundUri?.substringAfterLast("/")?.take(36) ?: "ملف صوتي محدد", color = Muted, fontSize = 10.sp)
+            Text(settings.soundUri?.substringAfterLast("/")?.take(36) ?: mindText("ملف صوتي محدد", "Selected audio file"), color = Muted, fontSize = 10.sp)
         }
-        Text("يعمل يومياً ويُعاد ضبطه بعد إعادة تشغيل الهاتف أو تغيير الوقت والمنطقة الزمنية.", color = Muted, fontSize = 10.sp)
+        Text(mindText("يعمل يومياً ويُعاد ضبطه بعد إعادة تشغيل الهاتف أو تغيير الوقت والمنطقة الزمنية.", "Repeats daily and is rescheduled after a phone restart or time-zone change."), color = Muted, fontSize = 10.sp)
     }
 }
 
 @Composable
 private fun NotesScreen(value: String, onValue: (String) -> Unit) {
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("الملاحظات", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(mindText("الملاحظات", "Notes"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
         GlassCard {
-            Text("مساحة الكتابة", color = Gold, fontWeight = FontWeight.Bold)
+            Text(mindText("مساحة الكتابة", "Writing space"), color = Gold, fontWeight = FontWeight.Bold)
             OutlinedTextField(value = value, onValueChange = onValue, modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp),
-                placeholder = { Text("اكتب أفكارك وملاحظاتك...") })
-            Text("${value.length} حرف", color = Muted, fontSize = 11.sp)
+                placeholder = { Text(mindText("اكتب أفكارك وملاحظاتك...", "Write your ideas and notes...")) })
+            Text(mindText("${value.length} حرف", "${value.length} characters"), color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -1414,10 +1414,10 @@ private fun pageTitle(page: String): String = when (page) {
     "study" -> mindText("الدراسة والتركيز", "Study & focus")
     "fitness" -> mindText("الجري واللياقة", "Running & fitness")
     "food" -> mindText("التغذية", "Nutrition")
-    "journal" -> "اليوميات"
+    "journal" -> mindText("اليوميات", "Journal")
     "sleep" -> mindText("النوم", "Sleep")
-    "notes" -> "الملاحظات"
-    "settings" -> "الإعدادات"
-    "auth" -> "الحساب"
+    "notes" -> mindText("الملاحظات", "Notes")
+    "settings" -> mindText("الإعدادات", "Settings")
+    "auth" -> mindText("الحساب", "Account")
     else -> "MIND"
 }
