@@ -911,7 +911,7 @@ private fun StudyScreen(
 }
 
 @Composable
-private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
+private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onOpenFood: () -> Unit, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
     val context = LocalContext.current
     var workoutType by rememberSaveable { mutableStateOf("جري") }
     var tracking by rememberSaveable { mutableStateOf(false) }
@@ -1037,6 +1037,15 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                             }
                         }
                     }
+                }
+            }
+        }
+        item {
+            GlassCard {
+                Text("التغذية", color = Gold, fontWeight = FontWeight.Bold)
+                Text("سجّل السعرات اليومية وتابع سجل التغذية", color = Muted, fontSize = 12.sp)
+                Button(onClick = onOpenFood, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
+                    Text("فتح التغذية")
                 }
             }
         }
