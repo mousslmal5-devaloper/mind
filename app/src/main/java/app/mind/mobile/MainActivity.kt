@@ -190,6 +190,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
 
     var legacyImportBusy by remember { mutableStateOf(false) }
     var legacyImportMessage by remember { mutableStateOf<String?>(null) }
+    var cloudSyncBusy by remember { mutableStateOf(false) }
+    var cloudSyncMessage by remember { mutableStateOf<String?>(null) }
     var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
     var accountReloadVersion by remember { mutableIntStateOf(0) }
 
@@ -509,6 +511,47 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     userId = activeUid,
                                     importBusy = legacyImportBusy,
                                     importMessage = legacyImportMessage,
+                                    cloudSyncBusy = cloudSyncBusy,
+                                    cloudSyncMessage = cloudSyncMessage,
+                                    onUploadCloud = {
+                                        val uid = activeUid
+                                        if (!uid.isNullOrBlank() && stateLoaded && !cloudSyncBusy) {
+                                            cloudSyncBusy = true
+                                            cloudSyncMessage = null
+                                            appScope.launch {
+                                                val result = runCatching {
+                                                    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                                                    val repository = FirestoreMindSyncRepository(
+                                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(), auth
+                                                    )
+                                                    val currentInfo = repository.readSnapshotInfo(uid)
+                                                    val nextRevision = (currentInfo?.revision ?: 0L) + 1L
+                                                    val snapshot = CloudSyncCodec.fromLocal(
+                                                        MindSavedState(
+                                                            water = water, waterGoal = waterGoal, waterEntries = waterEntries,
+                                                            steps = steps, stepEntries = stepEntries, habitHistory = habitHistory,
+                                                            studyMinutes = studyMinutes, sleepHours = sleepHours,
+                                                            sleepSessions = sleepSessions, habitNames = habitNames,
+                                                            noteText = noteText, focusMode = focusMode,
+                                                            focusDurationMinutes = focusDurationMinutes,
+                                                            studySessions = studySessions, workoutSessions = workoutSessions,
+                                                            foodEntries = foodEntries, journalEntries = journalEntries
+                                                        ),
+                                                        nextRevision
+                                                    )
+                                                    repository.uploadSnapshot(uid, snapshot, currentInfo?.revision ?: 0L)
+                                                }
+                                                cloudSyncMessage = result.fold(
+                                                    { info -> mindString(uiLanguage == "en", "اكتمل رفع النسخة السحابية · الإصدار ${info.revision}", "Cloud backup uploaded · revision ${info.revision}") },
+                                                    { error ->
+                                                        Log.e("MIND", "Cloud backup failed", error)
+                                                        mindString(uiLanguage == "en", "تعذر رفع النسخة السحابية. تحقق من الاتصال ثم حاول مجدداً.", "Cloud backup failed. Check your connection and try again.")
+                                                    }
+                                                )
+                                                cloudSyncBusy = false
+                                            }
+                                        }
+                                    },
                                     onImportLegacy = {
                                         val uid = activeUid
                                         if (!uid.isNullOrBlank() && !legacyImportBusy) {
@@ -1460,6 +1503,9 @@ private fun SettingsScreen(
     userId: String?,
     importBusy: Boolean,
     importMessage: String?,
+    cloudSyncBusy: Boolean,
+    cloudSyncMessage: String?,
+    onUploadCloud: () -> Unit,
     onImportLegacy: () -> Unit,
     onLanguage: (String) -> Unit,
     onAppearance: (String) -> Unit,
@@ -1495,6 +1541,19 @@ private fun SettingsScreen(
         if (userId.isNullOrBlank()) {
             ModuleCard(if (english) "Account" else "الحساب", if (english) "Sign in or create an account" else "تسجيل الدخول أو إنشاء حساب", "auth", Modifier.fillMaxWidth()) { onAccount() }
         } else {
+            GlassCard {
+                Text(if (english) "Cloud backup" else "النسخة السحابية", fontWeight = FontWeight.Bold, color = Gold)
+                Text(
+                    if (english) "Upload this account's current local data to its private Firebase space. This is a manual backup; it does not merge or restore data automatically."
+                    else "ارفع بيانات هذا الحساب الحالية إلى مساحة Firebase الخاصة به. هذه نسخة احتياطية يدوية ولا تدمج البيانات أو تستعيدها تلقائياً.",
+                    color = Muted, fontSize = 12.sp
+                )
+                cloudSyncMessage?.let { Text(it, color = Muted, fontSize = 12.sp) }
+                Button(onClick = onUploadCloud, enabled = !cloudSyncBusy, modifier = Modifier.fillMaxWidth()) {
+                    if (cloudSyncBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(if (english) "Back up to cloud now" else "إنشاء نسخة احتياطية سحابية الآن")
+                }
+            }
             GlassCard {
                 Text(if (english) "Import this device's local data" else "استيراد بيانات هذا الجهاز", fontWeight = FontWeight.Bold, color = Gold)
                 Text(
