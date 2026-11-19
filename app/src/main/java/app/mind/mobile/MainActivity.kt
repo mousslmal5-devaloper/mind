@@ -354,6 +354,20 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
             val wideLayout = maxWidth >= 700.dp
             val expandedRail = maxWidth >= 1000.dp
             ReferenceAtmosphere()
+            if (activeUid.isNullOrBlank()) {
+                Box(
+                    Modifier.fillMaxSize().padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AuthScreen(onSignedIn = {
+                        activeUid = runCatching {
+                            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                ?.takeIf { it.isEmailVerified }?.uid
+                        }.getOrNull()
+                        page = "home"
+                    })
+                }
+            } else {
             Row(Modifier.fillMaxSize()) {
                 if (wideLayout) {
                     SideNavigation(
@@ -508,7 +522,15 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                         uiAppearance = selected
                                         appScope.launch { saveMindUiSettings(context, uiLanguage, selected) }
                                     },
-                                    onAccount = { page = "auth" }
+                                    onAccount = { page = "auth" },
+                                    onSignOut = {
+                                        focusRunning = false
+                                        runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().signOut() }
+                                            .onFailure { Log.e("MIND", "Unable to sign out", it) }
+                                        activeUid = null
+                                        page = "auth"
+                                        legacyImportMessage = null
+                                    }
                                 )
                                 "auth" -> AuthScreen(onSignedIn = {
                                     activeUid = runCatching {
@@ -537,6 +559,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                         BottomNavigation(page = page, onSelect = { page = it })
                     }
                 }
+            }
             }
         }
         }
@@ -1420,7 +1443,8 @@ private fun SettingsScreen(
     onImportLegacy: () -> Unit,
     onLanguage: (String) -> Unit,
     onAppearance: (String) -> Unit,
-    onAccount: () -> Unit
+    onAccount: () -> Unit,
+    onSignOut: () -> Unit
 ) {
     val english = language == "en"
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1462,6 +1486,13 @@ private fun SettingsScreen(
                 Button(onClick = onImportLegacy, enabled = !importBusy, modifier = Modifier.fillMaxWidth()) {
                     if (importBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     else Text(if (english) "Import local data" else "استيراد البيانات المحلية")
+                }
+            }
+            GlassCard {
+                Text(if (english) "Account session" else "جلسة الحساب", fontWeight = FontWeight.Bold, color = Gold)
+                Text(if (english) "Your account is signed in on this device." else "حسابك مسجل الدخول على هذا الجهاز.", color = Muted, fontSize = 12.sp)
+                Button(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (english) "Sign out" else "تسجيل الخروج")
                 }
             }
         }
