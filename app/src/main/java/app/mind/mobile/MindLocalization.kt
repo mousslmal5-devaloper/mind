@@ -8,3 +8,6 @@ val LocalMindLanguage = staticCompositionLocalOf { "ar" }
 @Composable
 fun mindText(arabic: String, english: String): String =
     if (LocalMindLanguage.current == "en") english else arabic
+
+fun mindString(english: Boolean, arabic: String, translated: String): String =
+    if (english) translated else arabic
