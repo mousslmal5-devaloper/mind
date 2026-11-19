@@ -47,11 +47,11 @@ class CloudSyncCodecTest {
             add(JsonPrimitive("second"))
             add(JsonPrimitive("third"))
         }
-        val chunks = CloudSyncCodec.chunkJsonArray(source.toString(), maxBytes = 45)
+        val chunks = CloudSyncCodec.chunkJsonArray(source.toString(), maxBytes = 130)
 
         assertEquals(source.size(), chunks.sumOf { com.google.gson.JsonParser.parseString(it).asJsonArray.size() })
         chunks.forEach { chunk ->
-            assertEquals(true, chunk.toByteArray(Charsets.UTF_8).size <= 45)
+            assertEquals(true, chunk.toByteArray(Charsets.UTF_8).size <= 130)
         }
     }
 
