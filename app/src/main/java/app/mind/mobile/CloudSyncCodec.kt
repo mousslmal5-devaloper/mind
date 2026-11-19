@@ -99,6 +99,20 @@ internal object CloudSyncCodec {
         }
         require(snapshot.revision >= 0L) { "Revision cannot be negative" }
         require(snapshot.waterGoal in 1..20) { "Water goal is invalid" }
+
+        // Gson can populate Kotlin non-null properties with null when remote JSON is malformed.
+        requireNotNull(snapshot.habitNames) { "Habit definitions are missing" }
+        requireNotNull(snapshot.noteText) { "Notes are missing" }
+        requireNotNull(snapshot.focusMode) { "Focus mode is missing" }
+        requireNotNull(snapshot.waterEntries) { "Water history is missing" }
+        requireNotNull(snapshot.stepEntries) { "Step history is missing" }
+        requireNotNull(snapshot.habitHistory) { "Habit history is missing" }
+        requireNotNull(snapshot.studySessions) { "Study history is missing" }
+        requireNotNull(snapshot.sleepSessions) { "Sleep history is missing" }
+        requireNotNull(snapshot.workoutSessions) { "Workout history is missing" }
+        requireNotNull(snapshot.foodEntries) { "Food history is missing" }
+        requireNotNull(snapshot.journalEntries) { "Journal history is missing" }
+
         require(snapshot.habitNames.length <= 2_000) { "Habit definitions are too large" }
         require(snapshot.noteText.length <= 50_000) { "Notes are too large" }
         require(snapshot.focusMode == "تركيز" || snapshot.focusMode == "استراحة") {
@@ -113,6 +127,15 @@ internal object CloudSyncCodec {
         require(snapshot.workoutSessions.size <= 5_000) { "Too many workout sessions" }
         require(snapshot.foodEntries.size <= 20_000) { "Too many food records" }
         require(snapshot.journalEntries.size <= 20_000) { "Too many journal records" }
+
+        snapshot.waterEntries.forEach { requireNotNull(it) { "Water history contains a null record" } }
+        snapshot.stepEntries.forEach { requireNotNull(it) { "Step history contains a null record" } }
+        snapshot.habitHistory.forEach { requireNotNull(it) { "Habit history contains a null record" } }
+        snapshot.studySessions.forEach { requireNotNull(it) { "Study history contains a null record" } }
+        snapshot.sleepSessions.forEach { requireNotNull(it) { "Sleep history contains a null record" } }
+        snapshot.workoutSessions.forEach { requireNotNull(it) { "Workout history contains a null record" } }
+        snapshot.foodEntries.forEach { requireNotNull(it) { "Food history contains a null record" } }
+        snapshot.journalEntries.forEach { requireNotNull(it) { "Journal history contains a null record" } }
     }
 
     private fun utf8Size(element: com.google.gson.JsonElement): Int =
