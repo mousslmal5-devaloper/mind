@@ -169,9 +169,16 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var stateLoaded by rememberSaveable { mutableStateOf(false) }
     var uiLanguage by rememberSaveable { mutableStateOf("ar") }
     var uiAppearance by rememberSaveable { mutableStateOf("dark") }
+    var activeUid by rememberSaveable {
+        mutableStateOf(runCatching {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                ?.takeIf { it.isEmailVerified }?.uid
+        }.getOrNull())
+    }
 
-    LaunchedEffect(Unit) {
-        val saved = runCatching { loadMindSavedState(context) }
+    LaunchedEffect(activeUid) {
+        stateLoaded = false
+        val saved = runCatching { loadMindSavedState(context, activeUid) }
             .onFailure { Log.e("MIND", "Unable to restore local app data", it) }
             .getOrDefault(MindSavedState())
         uiLanguage = saved.uiLanguage
@@ -225,7 +232,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     }
 
     LaunchedEffect(
-        stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
+        activeUid, stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
         habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode, uiLanguage, uiAppearance,
         focusDurationMinutes, studySessions, workoutSessions, foodEntries, journalEntries
     ) {
@@ -257,7 +264,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                         journalEntries = journalEntries,
                         uiLanguage = uiLanguage,
                         uiAppearance = uiAppearance
-                    )
+                    ),
+                    activeUid
                 )
             }.onFailure { Log.e("MIND", "Unable to persist local app data", it) }
         }
@@ -408,12 +416,12 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     onAdd = { text -> journalEntries = (journalEntries + JournalEntry(System.currentTimeMillis(), text)).takeLast(20000) },
                                     onDelete = { entry -> journalEntries = journalEntries.filterNot { it.recordedAt == entry.recordedAt } }
                                 )
-                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, onOpenFood = { page = "food" }, onSessionCompleted = { session ->
+                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, userId = activeUid, onOpenFood = { page = "food" }, onSessionCompleted = { session ->
                                     workoutSessions = (workoutSessions.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000)
                                 }, onDeleteSession = { session ->
                                     workoutSessions = workoutSessions.filterNot { it.startedAt == session.startedAt }
                                 }, onRefreshSessions = {
-                                    appScope.launch { workoutSessions = loadMindSavedState(context).workoutSessions }
+                                    appScope.launch { workoutSessions = loadMindSavedState(context, activeUid).workoutSessions }
                                 })
                                 "sleep" -> SleepScreen(
                                     hours = sleepHours, sessions = sleepSessions,
@@ -447,7 +455,13 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     },
                                     onAccount = { page = "auth" }
                                 )
-                                "auth" -> AuthScreen(onSignedIn = { page = "home" })
+                                "auth" -> AuthScreen(onSignedIn = {
+                                    activeUid = runCatching {
+                                        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                            ?.takeIf { it.isEmailVerified }?.uid
+                                    }.getOrNull()
+                                    page = "home"
+                                })
                                 else -> Dashboard(
                                     habits = habits, habitMask = habitMask, water = water,
                                     waterGoal = waterGoal, steps = steps, studyMinutes = studyMinutes,
@@ -953,7 +967,7 @@ private fun StudyScreen(
 }
 
 @Composable
-private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onOpenFood: () -> Unit, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
+private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, userId: String?, onOpenFood: () -> Unit, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
     val context = LocalContext.current
     val english = LocalMindLanguage.current == "en"
     var workoutType by rememberSaveable { mutableStateOf(mindString(english, "جري", "Run")) }
@@ -966,7 +980,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
+            val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType).putExtra(GpsWorkoutService.EXTRA_UID, userId)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
             tracking = true
             gpsMessage = mindString(english, "جارٍ الحصول على إشارة GPS", "Getting GPS signal")
