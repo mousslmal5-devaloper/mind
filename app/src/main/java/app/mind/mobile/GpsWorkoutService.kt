@@ -26,6 +26,7 @@ class GpsWorkoutService : Service(), LocationListener {
     private lateinit var locationManager: LocationManager
     private var active = false
     private var workoutType = "جري"
+    private var ownerUid: String? = null
     private var distanceMeters = 0f
     private var startedElapsed = 0L
     private var startedAtMillis = 0L
@@ -48,6 +49,17 @@ class GpsWorkoutService : Service(), LocationListener {
                 if (!active) stopSelf(startId)
             }
             ACTION_START -> {
+                val requestedUid = intent.getStringExtra(EXTRA_UID)?.takeIf { it.isNotBlank() }
+                val authenticatedUid = runCatching {
+                    com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        ?.takeIf { it.isEmailVerified }?.uid
+                }.getOrNull()
+                if (requestedUid != authenticatedUid) {
+                    publish(false, "تعذر بدء الجلسة: تغيّرت هوية الحساب")
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                ownerUid = requestedUid
                 if (active) {
                     publish(true, "جلسة $workoutType قيد التسجيل")
                     return START_STICKY
@@ -139,7 +151,8 @@ class GpsWorkoutService : Service(), LocationListener {
         if (duration >= 5L && startedAtMillis > 0L) {
             val session = WorkoutSession(startedAtMillis, endedAt, workoutType, distanceMeters, duration)
             serviceScope.launch {
-                runCatching { appendWorkoutSession(applicationContext, session) }
+                val currentUid = runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.takeIf { it.isEmailVerified }?.uid }.getOrNull()
+                if (currentUid == ownerUid) runCatching { appendWorkoutSession(applicationContext, session, ownerUid) }
                     .onFailure { Log.e(TAG, "Unable to persist completed workout", it) }
                 stopSelf()
             }
@@ -155,6 +168,7 @@ class GpsWorkoutService : Service(), LocationListener {
             .putFloat(KEY_DISTANCE, distanceMeters)
             .putLong(KEY_STARTED_AT, startedAtMillis)
             .putLong(KEY_STARTED_ELAPSED, startedElapsed)
+            .putString(KEY_OWNER_UID, ownerUid.orEmpty())
             .apply()
     }
 
@@ -165,6 +179,16 @@ class GpsWorkoutService : Service(), LocationListener {
     private fun restorePersistedWorkout() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_ACTIVE, false)) return
+        val savedOwnerUid = prefs.getString(KEY_OWNER_UID, "").orEmpty().ifBlank { null }
+        val currentUid = runCatching {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                ?.takeIf { it.isEmailVerified }?.uid
+        }.getOrNull()
+        if (savedOwnerUid != currentUid) {
+            clearPersistedWorkout()
+            return
+        }
+        ownerUid = savedOwnerUid
         val savedStartedElapsed = prefs.getLong(KEY_STARTED_ELAPSED, 0L)
         val nowElapsed = SystemClock.elapsedRealtime()
         // elapsedRealtime resets after reboot; never revive a stale workout from a previous boot.
@@ -255,6 +279,7 @@ class GpsWorkoutService : Service(), LocationListener {
         const val ACTION_UPDATE = "app.mind.mobile.GPS_UPDATE"
         const val ACTION_STATUS = "app.mind.mobile.GPS_STATUS"
         const val EXTRA_TYPE = "workout_type"
+        const val EXTRA_UID = "owner_uid"
         const val EXTRA_ACTIVE = "active"
         const val EXTRA_DISTANCE = "distance_meters"
         const val EXTRA_ELAPSED = "elapsed_seconds"
@@ -273,5 +298,6 @@ class GpsWorkoutService : Service(), LocationListener {
         private const val KEY_DISTANCE = "distance_meters"
         private const val KEY_STARTED_AT = "started_at"
         private const val KEY_STARTED_ELAPSED = "started_elapsed"
+        private const val KEY_OWNER_UID = "owner_uid"
     }
 }
