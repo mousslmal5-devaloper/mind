@@ -42,16 +42,16 @@ fun AuthScreen(onSignedIn: () -> Unit) {
         modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(if (createAccount) "إنشاء حساب MIND" else "تسجيل الدخول")
-        Text("حسابك الشخصي يحفظ بياناتك ويتيح مزامنتها بعد إعداد Firebase.")
+        Text(if (createAccount) mindText("إنشاء حساب MIND", "Create a MIND account") else mindText("تسجيل الدخول", "Sign in"))
+        Text(mindText("حسابك الشخصي يحفظ بياناتك ويتيح مزامنتها بعد إعداد Firebase.", "Your personal account keeps your data and enables syncing once Firebase is configured."))
         if (configError) {
-            Text("لم يتم تهيئة Firebase لهذا التطبيق بعد. أضف google-services.json الخاص بالحزمة app.mind.mobile وفعّل Email/Password في Firebase Console.")
+            Text(mindText("لم يتم تهيئة Firebase لهذا التطبيق بعد. أضف google-services.json الخاص بالحزمة app.mind.mobile وفعّل Email/Password في Firebase Console.", "Firebase is not configured for this app yet. Add the google-services.json for package app.mind.mobile and enable Email/Password in Firebase Console."))
         } else {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it.trim() },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("البريد الإلكتروني") },
+                label = { Text(mindText("البريد الإلكتروني", "Email address")) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
@@ -59,7 +59,7 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                 value = password,
                 onValueChange = { password = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("كلمة المرور") },
+                label = { Text(mindText("كلمة المرور", "Password")) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
@@ -69,11 +69,11 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                 onClick = {
                     val instance = auth
                     if (instance == null) {
-                        message = "خدمة الحساب غير متاحة حالياً."
+                        message = mindText("خدمة الحساب غير متاحة حالياً.", "The account service is currently unavailable.")
                     } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                        message = "أدخل بريداً إلكترونياً صحيحاً."
+                        message = mindText("أدخل بريداً إلكترونياً صحيحاً.", "Enter a valid email address.")
                     } else if (password.length < 6) {
-                        message = "يجب ألا تقل كلمة المرور عن 6 أحرف."
+                        message = mindText("يجب ألا تقل كلمة المرور عن 6 أحرف.", "Password must be at least 6 characters.")
                     } else {
                         busy = true
                         message = null
@@ -90,30 +90,30 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                                     user?.sendEmailVerification()?.addOnCompleteListener { verification ->
                                         busy = false
                                         message = if (verification.isSuccessful) {
-                                            "تم إنشاء الحساب. أرسلنا رابط تأكيد إلى بريدك الإلكتروني."
+                                            mindText("تم إنشاء الحساب. أرسلنا رابط تأكيد إلى بريدك الإلكتروني.", "Account created. We sent a verification link to your email.")
                                         } else {
-                                            "تم إنشاء الحساب، لكن تعذر إرسال رسالة التأكيد. حاول تسجيل الدخول لاحقاً."
+                                            mindText("تم إنشاء الحساب، لكن تعذر إرسال رسالة التأكيد. حاول تسجيل الدخول لاحقاً.", "Account created, but the verification email could not be sent. Try signing in later.")
                                         }
                                     } ?: run {
                                         busy = false
-                                        message = "تم إنشاء الحساب، لكن تعذر بدء تأكيد البريد."
+                                        message = mindText("تم إنشاء الحساب، لكن تعذر بدء تأكيد البريد.", "Account created, but email verification could not be started.")
                                     }
                                 } else if (user?.isEmailVerified == true) {
                                     onSignedIn()
                                 } else {
                                     user?.sendEmailVerification()?.addOnCompleteListener {
                                         busy = false
-                                        message = "يجب تأكيد بريدك الإلكتروني قبل المتابعة. أرسلنا رابط التأكيد مجدداً."
+                                        message = mindText("يجب تأكيد بريدك الإلكتروني قبل المتابعة. أرسلنا رابط التأكيد مجدداً.", "Verify your email before continuing. We sent the verification link again.")
                                     } ?: run {
                                         busy = false
-                                        message = "يجب تأكيد بريدك الإلكتروني قبل المتابعة."
+                                        message = mindText("يجب تأكيد بريدك الإلكتروني قبل المتابعة.", "Verify your email before continuing.")
                                     }
                                 }
                             } else message = when (result.exception) {
-                                is com.google.firebase.auth.FirebaseAuthInvalidCredentialsException -> "البريد أو كلمة المرور غير صحيحة."
-                                is com.google.firebase.auth.FirebaseAuthUserCollisionException -> "هذا البريد مسجل بالفعل."
-                                is com.google.firebase.auth.FirebaseAuthWeakPasswordException -> "اختر كلمة مرور أقوى."
-                                else -> "تعذر إكمال العملية. تحقق من الاتصال وحاول مجدداً."
+                                is com.google.firebase.auth.FirebaseAuthInvalidCredentialsException -> mindText("البريد أو كلمة المرور غير صحيحة.", "Incorrect email or password.")
+                                is com.google.firebase.auth.FirebaseAuthUserCollisionException -> mindText("هذا البريد مسجل بالفعل.", "This email is already registered.")
+                                is com.google.firebase.auth.FirebaseAuthWeakPasswordException -> mindText("اختر كلمة مرور أقوى.", "Choose a stronger password.")
+                                else -> mindText("تعذر إكمال العملية. تحقق من الاتصال وحاول مجدداً.", "Could not complete the operation. Check your connection and try again.")
                             }
                         }
                     }
@@ -121,13 +121,13 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (busy) CircularProgressIndicator() else Text(if (createAccount) "إنشاء الحساب" else "دخول")
+                if (busy) CircularProgressIndicator() else Text(if (createAccount) mindText("إنشاء الحساب", "Create account") else mindText("دخول", "Sign in"))
             }
             TextButton(onClick = {
                 createAccount = !createAccount
                 message = null
             }) {
-                Text(if (createAccount) "لديك حساب؟ سجّل الدخول" else "إنشاء حساب جديد")
+                Text(if (createAccount) mindText("لديك حساب؟ سجّل الدخول", "Already have an account? Sign in") else mindText("إنشاء حساب جديد", "Create a new account"))
             }
         }
     }
