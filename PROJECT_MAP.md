@@ -1,64 +1,111 @@
-# PROJECT_MAP.md
+# MIND — Project map
+
+Last reviewed: 2026-11-19
+Active repository: `mousslmal5-devaloper/mind`
+Active branch: `feature/native-rebuild`
+Current baseline commit: `9d5276254b921e1f5231ffd40bcbc4581977aee7`
+Pull request: #1 (open draft; do not merge without explicit user approval).
 
 ## [TECH_STACK]
-- Android Native: Kotlin 1.9.22, Jetpack Compose, AGP 8.2.2, compileSdk 34.
-- Compatibility contract: minSdk 23 / targetSdk 30 (Android 6–11).
-- Firebase Authentication + Cloud Firestore; Firebase BoM 32.8.1 and Auth 22.3.1.
-- Compose BOM 2024.05.00; Java 17.
-- Arabic/English; supplied original font, logo, and audio assets are to be reused after validation.
+- Native Android app: Kotlin + Jetpack Compose; no WebView and no HTML runtime.
+- Android compatibility contract: minSdk 23 (Android 6.0), targetSdk 30 (Android 11); compileSdk 34.
+- Current pinned build: AGP 8.2.2, Kotlin 1.9.22, Java 17, Compose compiler extension 1.5.10, Compose BOM 2024.05.00.
+- Current pinned AndroidX: Activity Compose 1.8.2, Navigation Compose 2.7.7, Lifecycle Runtime Compose 2.7.0, DataStore Preferences 1.0.0, Room 2.6.1 (declared; no Room database/entities currently in use).
+- Firebase: BoM 32.8.1, Auth 22.3.1, Firestore 24.11.1; Google Services plugin 4.4.1.
+- Package/application ID: `app.mind.mobile`.
+- Arabic-first RTL UI with Cairo typography and the reference's dark/gold liquid-glass visual language.
+
+### Dependency currency review (2026-11-19)
+- Official current releases checked: AGP 9.5.1; Kotlin 2.4.21; stable Compose BOM 2026.09.00; Firebase Android BoM 35.2.0 and Google Services plugin 4.6.0.
+- These are currency findings, not an instruction to upgrade blindly. Compose 2026.09 targets compileSdk 37 and its August 2026 release notes require AGP 9.1.2+; Firebase's newer BoM may raise the Android minimum supported API. Keep the currently verified Android 6/API 23 compatibility baseline until a staged toolchain/dependency compatibility build and API 23–30 validation pass. Do not mix a toolchain upgrade into feature-parity work.
+- Sources: https://developer.android.com/reference/tools/gradle-api ; https://kotlinlang.org/docs/releases.html ; https://developer.android.com/develop/ui/compose/bom ; https://firebase.google.com/support/release-notes/android
 
 ## [SYSTEM_FLOW]
-- App launch -> onboarding/profile setup when required -> authenticated or local app shell.
-- Auth: email/password and OAuth providers only when their Firebase console configuration is verified.
-- Local-first feature data -> authenticated per-user Firestore sync; explicit conflict/error handling.
-- Native navigation mirrors the reference HTML's screens and journeys, with back navigation on every destination.
+1. App process starts and restores local persisted state.
+2. Native Compose navigation opens the requested reference-matched destination.
+3. User action validates input/permissions, updates feature state, and persists it locally.
+4. Sensors/GPS/alarms run through Android platform components only for corresponding reference functions.
+5. Statistics and achievements derive from recorded source-equivalent events, not demo values.
+6. Account authentication is separate from local-first use; cloud sync is not considered complete until per-user Firestore read/write, restore, and failure paths are verified.
+7. Backup/import/reset and settings must preserve the reference's data semantics and clearly handle destructive actions.
 
 ## [ARCHITECTURE]
-- UI: Compose screens, reusable glass surfaces, reference-matched background/orbs, typography and motion system.
-- Navigation: typed destinations and a consistent back affordance.
-- Domain: feature use-cases and validation, independent of Compose.
-- Data: repositories, Room/local persistence, Firebase adapters, sync state.
-- Platform: notifications, audio playback, sensors, widgets and lifecycle integration only where specified by the HTML reference.
-- Design fidelity: preserve the HTML's dark radial gradient, ambient moving orbs, translucent bordered cards, gold accent, responsive navigation, Cairo typography and transition timings; implement natively.
+- `MainActivity.kt`: app host, current route state, dashboard, habits, water, study, fitness, sleep, notes and settings entry points.
+- `MindPreferences.kt`: DataStore-backed local persistence and JSON codecs for current water, step, habit, study, sleep and workout records.
+- `StatisticsScreens.kt`: native statistics/achievement UI and chart rendering.
+- `MindMapScreen.kt`: mind-map editing/rendering.
+- `StepCounterService.kt`, `StepCounterBootReceiver.kt`, `StepCounterMath.kt`: real Android step-counter sensor integration and daily baseline logic.
+- `GpsWorkoutService.kt`, `WorkoutDistanceMath.kt`: GPS workout measurement and distance validation.
+- `SleepAlarm.kt`: alarm scheduling, receiver behavior and sound/vibration settings.
+- `AuthScreen.kt`: Firebase email/password authentication and email verification.
+- Keep feature logic near the owning feature. Add Shared/Core abstractions only when at least two real call sites need the same behavior. No micro-file proliferation.
+- Logging uses Android Log at failure boundaries; do not log passwords, tokens, personal note contents, or precise location traces.
+
+## [REFERENCE_SOURCE]
+- Sole visual/behavioral source: uploaded `mind-web (1)(5).html`.
+- Conversation file ID: `file_000000001bb881f4bf9bb2fa5a4f65f8`; size 215,327 bytes; uploaded 2026-11-19.
+- Never modify or replace the user's reference file. Do not use older `mind-web` uploads as the active specification unless the user explicitly changes the reference.
+- Preserve the original layout, content hierarchy, labels, charts, metrics, background, responsive behavior and interactions. No new modules, no unsolicited features, no redesign.
+- Verified visual tokens: dark background `#0d0d0f`; card `rgba(255,255,255,.055)`; border `rgba(255,255,255,.09)`; text `#f4f4f6`; secondary `#a2a2ab`; gold `#e8c547` / `#d4a942`; Cairo; radial gold glow; ambient moving orbs; translucent rounded cards; floating bottom navigation; responsive side navigation; animated transitions and charts.
+
+## [CURRENT_IMPLEMENTATION]
+Verified in source at baseline commit `9d5276254b921e1f5231ffd40bcbc4581977aee7`:
+- Native Compose shell, animated ambient background, glass-card primitives and responsive bottom/side navigation.
+- Dashboard, habit check-in/create flow (basic list model), water intake and goal, statistics, awards.
+- Pomodoro focus/break timer, session tracking and native mind maps.
+- Real Android `TYPE_STEP_COUNTER` integration; no manual step increment/decrement control.
+- GPS walking/running/cycling workout tracking, session history and distance/duration.
+- Sleep start/wake sessions, history and wake alarm with silent/vibration, ringtone and selected audio file options.
+- Notes currently persist a single plain-text field; this is not parity with the reference's full notes workspace.
+- Firebase email/password sign-in/create-account and email verification. Google/Facebook/Apple sign-in and Firestore sync/restore are not verified as implemented.
+- DataStore currently persists the implemented records listed above. Room is only a declared dependency; do not claim Room-backed storage.
+- Unit tests exist for step-counter math and workout-distance math. CI run 44468643583 on this baseline passed Unit tests and Assemble debug APK; artifact MIND-debug-apk is 20,666,947 bytes. No connected/emulator test job is currently present.
 
 ## [ORPHANS & PENDING]
-- Latest uploaded reference HTML (`mind-web (1)(3).html`) is the sole visual/behavioral specification. Confirmed tokens from source: #0d0d0f background, gold #e8c547/#d4a942, radial glow, slow ambient orbs, translucent bordered cards, Cairo typography, floating bottom navigation and animated transitions. Full feature inventory is recorded below; native parity remains in progress.
-- Validate supplied font family and extract original app icon, logo, and audio assets from the previous Android archive.
-- Inspect and selectively port reusable native modules; exclude old package identity, unsafe signing material and stale placeholders.
-- Confirm Firebase Android package registration and OAuth fingerprints; the previous project's Google OAuth client was reported empty.
-- Implemented a first native Compose shell with the reference palette, animated ambient background layers, glass cards, bottom navigation and back affordance; this is a visual foundation, not complete parity.
-- Added an email/password Firebase Authentication screen with create-account/sign-in flows, input validation and user-facing error handling. It requires a google-services.json registered for app.mind.mobile; the old app config does not match this package. OAuth and Firestore sync are not yet enabled.
-- CI run 44360823804 confirms Firebase Google Services processing and dependency resolution now pass. Kotlin compilation then failed at five `Modifier.align` calls in `ReferenceAtmosphere`; fixed by placing the animated orbs inside a BoxScope. Await the new CI run before calling the fix successful.
-- Current CI still has only the assemble job. Add separate unit-test and emulator-test jobs after the first clean assemble; upload APK only after successful assemble.
+Every item below remains open until implemented from the exact HTML behavior, persisted, and covered by a verification goal.
 
-## Reference feature parity baseline
-- Authoritative latest source upload: `mind-web (1)(3).html`, conversation file ID `file_00000000eba481f49c3e09aba0e7ad2a`, 215,327 bytes. It was preserved unchanged in the user's downloadable backup archive; SHA-256: `dd0230337f21a4b3e8ba7c530c6b08e8df5927d6eb1fc9c06f7a34e0ded3e990`. Treat this HTML as the source of truth for existing features, labels, layouts, colors, chart types, symbols, and behavior. Never overwrite it.
-- User's explicit scope: reproduce ALL existing functionality and original design in native Android; no invented product modules, no unrelated additions, no removal/simplification of data or statistics. Allowed visual adaptation: render each existing feature as a polished interactive widget/card where appropriate; create a bespoke animated native background; add smooth transitions/micro-animations; preserve recognizable original iconography and chart symbols. The study module's charts and symbols are especially important.
-- Design tokens/behavior found in source: dark base `#0d0d0f`, warm gold `#e8c547` / `#d4a942`, translucent glass cards with blur and soft borders, rounded card geometry, Cairo typography, staggered entrances, animated chart drawing, floating ambient orbs with gentle parallax (pointer/device orientation), responsive two/four-column widget grids, Arabic RTL and English LTR.
-- Feature inventory from source code (native parity required):
-  1. Onboarding: welcome, language selection, required name, body weight/height, permissions.
-  2. Home: daily progress, habit summary, streaks, daily curve, today's stats, interactive widgets.
-  3. Habits: create/edit/delete, custom icon/color, schedule days, time, reminders, daily completion and streak tracking.
-  4. Statistics: segmented time ranges, progress rings, trend line charts/cards for steps, calories, habit completion, water, sleep, study/focus; daily/hourly breakdowns and habit/sleep grids.
-  5. Awards: complete achievement catalog and progress thresholds for habits, streaks, check-ins, perfect days, water, sleep, study sessions/minutes, steps, workouts, meals, journal entries, notes, active days and unlocked achievements.
-  6. Study: Pomodoro focus/break, timer controls and added time, focus tracking/lock, focus-minute summaries, study charts, and mind maps (create/edit nodes, colors, backgrounds, zoom/pan, export/share).
-  7. Fitness: step sensor tracking, manual step entry, goals/body weight, walking/running/cycling sessions, GPS distance, duration, calories, history and shareable fitness summary.
-  8. Sleep: start/wake sessions, duration validation, history/deletion, wake alarm, sound/vibration options.
-  9. Water: daily intake, hourly tracking and progress goals.
-  10. Nutrition/food logs, journal entries and their achievement/statistic data.
-  11. Notes: search, folders, sorting, pinning, lock/private, trash/restore/permanent delete, rich text/checklists, image/audio attachments, voice recording/playback, drawing/doodle, export/share.
-  12. Widgets: clock, water, Pomodoro, ambient audio/music and existing feature summaries. Treat these as native interactive widgets/cards inside the app; do not silently convert them into unrelated Android launcher widgets.
-  13. Ambient audio: bundled/custom sounds, playback, looping and volume.
-  14. Account and sync: email verification/sign-in, Google/Facebook/Apple provider flows in source, account management, Firebase user data sync/restore. Source HTML's Firebase config object is blank, so provider credentials/configuration must be supplied from the correct Firebase Android app; do not copy empty/old web config as a working login.
-  15. Settings/security: Arabic/English, appearance, goals, notifications/sounds, motion/location permissions, PIN lock and timeout gate, orientation, backup JSON import/export, reset, about/privacy/help/share.
-- Data parity: preserve all source records and timestamps needed for habit completion, hourly water, focus sessions, sleep, step/fitness sessions, food, journal, notes, mind maps, awards, and account backup/sync. Do not substitute demo values for real user data.
-- Acceptance criteria: each source feature has a native screen or widget entry point, persists its source-equivalent data, contributes to the same relevant statistics/achievements, handles empty/error/permission states, and has tests. Charts must be fed by persisted data and retain the source metric labels, units, colors and symbols. No feature may be marked complete solely because a placeholder card exists.
+### P0 — Source fidelity and data integrity
+- Compare every native screen's layout, labels, responsive arrangement, colors, icons, charts and actions against `mind-web (1)(5).html`; fix mismatches without redesign.
+- Add a reference-to-native parity checklist with per-feature evidence and test status.
+- Validate DataStore serialization/migration and ensure records survive process death, date rollover and malformed stored data.
+- Implement source-equivalent onboarding/profile flow (welcome, language, name, body metrics and permissions) where present in the reference.
+- Complete habit model and editor: description, icon/color, time, scheduled weekdays, reminder, edit/delete, daily done/missed/pending state, time lock, history and streak calculations.
+- Complete water behavior: hourly entries, daily goal/progress and matching hourly/statistical breakdown.
+- Complete statistics: source time ranges, rings, curves, hourly breakdowns, weekly habit/sleep grids, source labels/units and persisted-data calculations.
+- Complete achievements catalog and thresholds, including food, journal, notes, active days and unlocked-achievement progression.
 
+### P1 — Missing reference modules and full feature depth
+- Nutrition/food logging with source-matching calorie entry, daily records, edit/delete, history and achievement/statistics integration.
+- Journal entries with source-matching text entry, dated history, edit/delete and achievement/statistics integration.
+- Study parity: focus lock behavior, complete charts and source-equivalent summaries; retain native mind-map editing, backgrounds, node operations, zoom/pan and export/share parity.
+- Fitness parity: profile body metrics/step goal, hourly step distribution, source calculations and complete workout summary/history/share behavior. Distinguish sensor-measured values from estimates.
+- Sleep parity: exact session validation, comparisons, 7-day/30-day summaries, grids, history and wake alarm behavior.
+- Notes workspace parity: search, folders, sorting, pinning, lock/PIN, trash/restore/permanent delete, rich text/checklists, image/audio attachments, recording/playback, drawing, export/share.
+- Dashboard/widgets parity: source clock, water, Pomodoro, ambient audio and feature summary widgets as in-app UI; do not invent launcher widgets.
+- Ambient audio parity: source sound choices, custom audio, looping and volume controls.
+- Settings parity: language, appearance, goals, notification/sound options, permissions, PIN/timeout, orientation, backup/import/export, reset, about/privacy/help/share.
 
-## Current implementation checkpoint — 2026-11-18
-- Commit `f4133b7b269bb1656e28a1f347c42340f8f373c1` replaces the initial placeholder-only home shell with interactive Compose screens for dashboard, habit check-ins and habit creation, water intake/goal, study Pomodoro controls, manual fitness step entry, sleep-duration logging, notes text entry, and account/settings navigation. The animated dark/gold atmosphere and glass surfaces remain.
-- This is an initial UI/interaction slice, **not feature parity**. These values currently live in Compose saved state and are not yet backed by Room/DataStore or Firestore; GPS/sensor step tracking, full study charts/mind maps, sleep sessions/alarm, notes attachments/folders/trash, source achievement calculations, nutrition/journal, ambient audio, and complete settings are still pending.
-- The step count control is explicitly manual; it is not represented as a working background pedometer. Do not claim sensor/GPS tracking until implemented and permission-tested.
-- The study timer currently implements the 25-minute focus / 5-minute break controls and a session counter; the reference's full study chart and mind-map system remains pending.
-- CI run 44393910445 was triggered for commit `f4133b7`; its status was pending when this checkpoint was written. Do not use the earlier successful run as evidence that this newer commit builds.
-- Continue with durable local persistence and domain models before claiming data retention; then implement source-specific chart datasets and the remaining reference modules. Keep minSdk 23 / targetSdk 30.
+### P2 — Account, sync and release verification
+- Verify correct Firebase Android app configuration for `app.mind.mobile`, OAuth fingerprints and provider setup before enabling providers.
+- Implement Firestore per-user sync, restore, offline/error handling and conflict policy; no cloud-sync claim before end-to-end verification.
+- Verify import/export preserves all supported records and attachments; destructive reset must require confirmation.
+- Add instrumentation/UI tests and API 23–30 smoke tests; current CI has unit tests + assemble only.
+- Confirm final font/icon/audio assets and licensing/source files before bundling.
+- Review dependency/toolchain upgrades separately, preserving minSdk 23 and targetSdk 30.
+
+## [MILESTONES — VERIFIABLE GOALS]
+1. **M0 — Baseline and source lock:** exact reference identified; baseline CI, artifact and branch verified; PROJECT_MAP synchronized. Goal: source and implementation inventory has no stale reference or unsupported completion claim.
+2. **M1 — Native shell parity:** all reference destinations reachable with matching responsive layout/theme/navigation. Goal: per-screen visual checklist passes on phone and wide layouts.
+3. **M2 — Reliable domain data:** source-equivalent models and persistence for habits, water, study, sleep, fitness, food, journal, notes and mind maps. Goal: round-trip serialization + process-restart tests pass.
+4. **M3 — Feature parity:** each module's user journey, edge cases, permissions, edit/delete and empty states work. Goal: acceptance tests pass for each feature before the next module is marked complete.
+5. **M4 — Statistics and achievements:** all source metrics derive from persisted records. Goal: deterministic fixture tests match source formulas and chart datasets.
+6. **M5 — Platform integrations:** sensors, GPS, alarms, audio and media/document access behave correctly across supported Android versions. Goal: permission-denied, unavailable hardware, lifecycle and restart cases pass.
+7. **M6 — Account and backup:** authentication providers only when configured; Firestore sync/restore and JSON backup round trips verified. Goal: user-scoped data and failure recovery tests pass.
+8. **M7 — Release quality:** no regressions, no placeholder/TODO code added, no new deprecations, API 23–30 smoke coverage, signed release configuration kept outside source control. Goal: all CI jobs pass and APK artifact is tied to the exact final commit.
+
+## [WORK RULES]
+- Work only in this repository and `feature/native-rebuild`; do not touch legacy repositories.
+- Never merge PR #1 or push to `main` without explicit user approval.
+- For every code change: inspect current file + blob SHA, make the smallest targeted edit, add/update tests, run CI, then update this map with exact evidence.
+- Do not call a feature complete because a route/card exists. Completion requires working behavior, persisted source-equivalent data, error/empty/permission handling, statistics integration where relevant, and tests.
+- Do not fabricate successful builds, test coverage, sensor measurements, OAuth setup, cloud sync, APKs or links.
