@@ -64,6 +64,27 @@ class CloudSyncCodecTest {
     }
 
     @Test
+    fun rejectsMalformedSnapshotsWithMissingOrNullCollections() {
+        val validJson = CloudSyncCodec.encode(
+            CloudSyncCodec.fromLocal(MindSavedState(), revision = 1L)
+        )
+
+        val nullCollection = validJson.replace("\"waterEntries\":[]", "\"waterEntries\":null")
+        assertThrows(IllegalArgumentException::class.java) {
+            CloudSyncCodec.decode(nullCollection)
+        }
+
+        val nullRecord = validJson.replace("\"waterEntries\":[]", "\"waterEntries\":[null]")
+        assertThrows(IllegalArgumentException::class.java) {
+            CloudSyncCodec.decode(nullRecord)
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            CloudSyncCodec.decode("{\"schemaVersion\":1}")
+        }
+    }
+
+    @Test
     fun rejectsUnsupportedSchemaAndNegativeRevision() {
         val valid = CloudSyncCodec.fromLocal(MindSavedState(), 0L)
         assertThrows(IllegalArgumentException::class.java) {
