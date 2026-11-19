@@ -28,7 +28,7 @@ private object MindUserDataStores {
 
     fun get(context: Context, uid: String): DataStore<Preferences> {
         val fileName = MindStorageIdentity.dataStoreFileName(uid)
-        return stores.getOrPut(fileName) {
+        return stores.computeIfAbsent(fileName) {
             PreferenceDataStoreFactory.create(
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
                 produceFile = { context.applicationContext.preferencesDataStoreFile(fileName.removeSuffix(".preferences_pb")) }
