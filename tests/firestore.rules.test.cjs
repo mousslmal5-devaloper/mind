@@ -38,7 +38,7 @@ describe("MIND Firestore sync ownership rules", () => {
     const db = testEnv.authenticatedContext("user-a").firestore();
     const reference = doc(
       db,
-      "users/user-a/sync/snapshots/generation-1/chunks/water_0"
+      "users/user-a/sync/meta/snapshots/generation-1/chunks/water_0"
     );
 
     await assertSucceeds(setDoc(reference, { records: ["sample"] }));
@@ -68,7 +68,7 @@ describe("MIND Firestore sync ownership rules", () => {
     const db = testEnv.authenticatedContext("user-b").firestore();
     const reference = doc(
       db,
-      "users/user-a/sync/snapshots/generation-1/chunks/water_0"
+      "users/user-a/sync/meta/snapshots/generation-1/chunks/water_0"
     );
 
     await assertFails(setDoc(reference, { records: ["stolen"] }));
