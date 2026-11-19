@@ -27,8 +27,12 @@ object SleepAlarm {
 
     data class Settings(val enabled: Boolean, val hour: Int, val minute: Int, val sound: String, val soundUri: String?)
 
-    fun read(context: Context): Settings {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context, accountKey: String) =
+        context.getSharedPreferences("${PREFS}_$accountKey", Context.MODE_PRIVATE)
+
+    fun read(context: Context, uid: String): Settings {
+        val accountKey = MindStorageIdentity.accountKey(uid)
+        val prefs = prefs(context, accountKey)
         return Settings(
             enabled = prefs.getBoolean(KEY_ENABLED, false),
             hour = prefs.getInt(KEY_HOUR, 7).coerceIn(0, 23),
@@ -38,38 +42,50 @@ object SleepAlarm {
         )
     }
 
-    fun saveAndSchedule(context: Context, hour: Int, minute: Int, enabled: Boolean) {
+    fun saveAndSchedule(context: Context, uid: String, hour: Int, minute: Int, enabled: Boolean) {
         val safeHour = hour.coerceIn(0, 23)
         val safeMinute = minute.coerceIn(0, 59)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val accountKey = MindStorageIdentity.accountKey(uid)
+        prefs(context, accountKey).edit()
             .putBoolean(KEY_ENABLED, enabled)
             .putInt(KEY_HOUR, safeHour)
             .putInt(KEY_MINUTE, safeMinute)
             .apply()
-        if (enabled) schedule(context, safeHour, safeMinute) else cancel(context)
+        if (enabled) schedule(context, accountKey, safeHour, safeMinute) else cancel(context, accountKey)
     }
 
-    fun saveSound(context: Context, sound: String, soundUri: String? = null) {
+    fun saveSound(context: Context, uid: String, sound: String, soundUri: String? = null) {
         val safeSound = sound.takeIf { it == "none" || it == "beep" || it == "file" } ?: "none"
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val accountKey = MindStorageIdentity.accountKey(uid)
+        prefs(context, accountKey).edit()
             .putString(KEY_SOUND, safeSound)
             .putString(KEY_SOUND_URI, if (safeSound == "file") soundUri else null)
             .apply()
     }
 
-    fun rescheduleIfEnabled(context: Context) {
-        val settings = read(context)
-        if (settings.enabled) schedule(context, settings.hour, settings.minute)
+    fun rescheduleIfEnabled(context: Context, uid: String) {
+        val accountKey = MindStorageIdentity.accountKey(uid)
+        rescheduleForAccountKey(context, accountKey)
     }
 
-    private fun alarmPendingIntent(context: Context): PendingIntent {
-        val intent = Intent(context, SleepAlarmReceiver::class.java).setAction("app.mind.mobile.SLEEP_ALARM")
+    internal fun rescheduleForAccountKey(context: Context, accountKey: String) {
+        if (!accountKey.matches(Regex("[a-f0-9]{64}"))) return
+        val p = prefs(context, accountKey)
+        if (p.getBoolean(KEY_ENABLED, false)) {
+            schedule(context, accountKey, p.getInt(KEY_HOUR, 7).coerceIn(0, 23), p.getInt(KEY_MINUTE, 0).coerceIn(0, 59))
+        }
+    }
+
+    private fun alarmPendingIntent(context: Context, accountKey: String): PendingIntent {
+        val intent = Intent(context, SleepAlarmReceiver::class.java)
+            .setAction("app.mind.mobile.SLEEP_ALARM")
+            .setData(Uri.parse("mind://sleep-alarm/$accountKey"))
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         return PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
     }
 
-    private fun schedule(context: Context, hour: Int, minute: Int) {
+    private fun schedule(context: Context, accountKey: String, hour: Int, minute: Int) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val next = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
@@ -80,29 +96,31 @@ object SleepAlarm {
         }
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.timeInMillis, alarmPendingIntent(context))
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.timeInMillis, alarmPendingIntent(context, accountKey))
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, next.timeInMillis, alarmPendingIntent(context))
             }
         }.onFailure { Log.e("MIND", "Unable to schedule sleep alarm", it) }
     }
 
-    private fun cancel(context: Context) {
+    private fun cancel(context: Context, accountKey: String) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         runCatching { alarmManager.cancel(alarmPendingIntent(context)) }
             .onFailure { Log.e("MIND", "Unable to cancel sleep alarm", it) }
     }
 
-    internal fun showNotification(context: Context) {
+    internal fun showNotification(context: Context, accountKey: String) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        val settings = read(context)
+        val settings = prefs(context, accountKey).let { p ->
+            Settings(p.getBoolean(KEY_ENABLED, false), p.getInt(KEY_HOUR, 7).coerceIn(0, 23), p.getInt(KEY_MINUTE, 0).coerceIn(0, 59), p.getString(KEY_SOUND, "none")?.takeIf { it == "none" || it == "beep" || it == "file" } ?: "none", p.getString(KEY_SOUND_URI, null))
+        }
         val alarmSound = when (settings.sound) {
             "beep" -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             "file" -> settings.soundUri?.let { Uri.parse(it) }
             else -> null
         }
-        val channelId = CHANNEL_ID + "_" + settings.sound + "_" + (settings.soundUri?.hashCode() ?: 0)
+        val channelId = CHANNEL_ID + "_" + accountKey + "_" + settings.sound + "_" + (settings.soundUri?.hashCode() ?: 0)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(channelId, "منبّه النوم", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "تنبيه وقت الاستيقاظ المحدد في MIND"
@@ -119,6 +137,7 @@ object SleepAlarm {
         }
         val contentFlags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        openApp.data = Uri.parse("mind://open-sleep-alarm/$accountKey")
         val contentIntent = PendingIntent.getActivity(context, REQUEST_CODE + 1, openApp, contentFlags)
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(context, channelId)
@@ -133,7 +152,7 @@ object SleepAlarm {
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .build()
-        runCatching { manager.notify(REQUEST_CODE, notification) }
+        runCatching { manager.notify(REQUEST_CODE + accountKey.hashCode(), notification) }
             .onFailure { Log.e("MIND", "Unable to show sleep alarm notification", it) }
     }
 }
@@ -141,13 +160,20 @@ object SleepAlarm {
 class SleepAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != "app.mind.mobile.SLEEP_ALARM") return
-        SleepAlarm.showNotification(context)
-        SleepAlarm.rescheduleIfEnabled(context)
+        val accountKey = intent.data?.lastPathSegment?.takeIf { it.matches(Regex("[a-f0-9]{64}")) } ?: return
+        SleepAlarm.showNotification(context, accountKey)
+        SleepAlarm.rescheduleForAccountKey(context, accountKey)
     }
 }
 
 class SleepAlarmBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action == Intent.ACTION_BOOT_COMPLETED || intent?.action == Intent.ACTION_TIME_CHANGED || intent?.action == Intent.ACTION_TIMEZONE_CHANGED) SleepAlarm.rescheduleIfEnabled(context)
+        if (intent?.action == Intent.ACTION_BOOT_COMPLETED || intent?.action == Intent.ACTION_TIME_CHANGED || intent?.action == Intent.ACTION_TIMEZONE_CHANGED) {
+            val uid = runCatching {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    ?.takeIf { it.isEmailVerified }?.uid
+            }.getOrNull() ?: return
+            SleepAlarm.rescheduleIfEnabled(context, uid)
+        }
     }
 }
