@@ -101,7 +101,11 @@ internal object CloudSyncCodec {
 
     fun encode(snapshot: MindCloudSnapshot): String {
         validate(snapshot)
-        return gson.toJson(snapshot)
+        val json = gson.toJson(snapshot)
+        require(json.toByteArray(Charsets.UTF_8).size <= MAX_SNAPSHOT_BYTES) {
+            "Snapshot exceeds the maximum supported cloud size"
+        }
+        return json
     }
 
     fun decode(json: String): MindCloudSnapshot {
