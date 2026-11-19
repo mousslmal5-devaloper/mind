@@ -59,11 +59,15 @@ class GpsWorkoutService : Service(), LocationListener {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
-                ownerUid = requestedUid
                 if (active) {
+                    if (ownerUid != requestedUid) {
+                        publish(true, "هناك جلسة نشطة لحساب آخر؛ لن يتم نقلها")
+                        return START_STICKY
+                    }
                     publish(true, "جلسة $workoutType قيد التسجيل")
                     return START_STICKY
                 }
+                ownerUid = requestedUid
                 workoutType = intent.getStringExtra(EXTRA_TYPE)?.takeIf { it in setOf("مشي", "جري", "دراجة") } ?: "جري"
                 startWorkout()
             }
