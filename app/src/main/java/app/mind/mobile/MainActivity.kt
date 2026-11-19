@@ -452,6 +452,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                 "sleep" -> SleepScreen(
                                     hours = sleepHours, sessions = sleepSessions,
                                     activeStartedAt = activeSleepStartedAt,
+                                    userId = activeUid,
                                     onStart = { if (activeSleepStartedAt == 0L) activeSleepStartedAt = System.currentTimeMillis() },
                                     onWake = {
                                         val now = System.currentTimeMillis()
@@ -1137,7 +1138,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
 }
 
 @Composable
-private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStartedAt: Long, onStart: () -> Unit, onWake: () -> Unit, onDelete: (SleepSession) -> Unit) {
+private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStartedAt: Long, userId: String?, onStart: () -> Unit, onWake: () -> Unit, onDelete: (SleepSession) -> Unit) {
     val active = activeStartedAt > 0L
     var clockNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(activeStartedAt) {
@@ -1152,7 +1153,7 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
     val activeMinutes = if (active) ((clockNow - activeStartedAt).coerceAtLeast(0L) / 60_000L) else 0L
     val latest = sessions.maxByOrNull { it.endedAt }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { SleepAlarmCard(activeUid) }
+        item { SleepAlarmCard(userId) }
         item {
             GlassCard {
                 Text(mindText("النوم", "Sleep"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
