@@ -1,15 +1,15 @@
 # MIND Cloud Sync Design
 
-Status: design approved for implementation planning; cloud sync is not implemented by this document.
+Status: partially implemented. The app has explicit manual cloud backup and confirmed restore flows, versioned snapshots, revision-checked publication, checksum verification, per-account local backups, and Firestore rules tests. Automatic background sync, conflict merging, generation cleanup, and real-device/two-device end-to-end verification are not complete.
 
 ## Current verified baseline
 
 - Authentication uses Firebase Email/Password in `AuthScreen.kt`.
 - The app currently stores its complete working state locally in Preferences DataStore (`mind_local_data`).
 - `MainActivity` restores the local state on startup and writes it back after state changes.
-- The app currently returns to the dashboard after sign-in; it does not read from or write to Firestore.
+- `FirestoreMindSyncRepository` currently uploads versioned snapshots and restores the active generation after explicit user action. Settings exposes manual backup, check, and confirm-restore actions.
 - Firestore dependency is already declared (Firebase BOM 32.8.1, Firestore 24.11.1).
-- Current Firestore rules allow access to the user's root `/users/{uid}` document only. Firestore rules do not automatically inherit into subcollections; rules must be extended before any subcollection sync is enabled.
+- Firestore rules now scope sync metadata, generation manifests, and chunks to the authenticated UID, validate document shape/schema/checksum/payload bounds, and deny deletion of published sync documents.
 - Several local histories can contain thousands of records (up to 30,000 step entries and 20,000 entries in some other histories). A single Firestore document is therefore not a safe storage target.
 
 ## Non-negotiable behavior
@@ -86,4 +86,4 @@ The current root-only rule is insufficient for the proposed nested documents. Be
 5. Add durable WorkManager retry and sync status/error UI.
 6. Run unit tests, assembleDebug, and connected device tests where supported before claiming sync is operational.
 
-Until these steps are implemented and verified, the app must continue to describe its data as local-only.
+Cloud backup and restore are implemented as explicit manual operations, but they must not be described as fully verified cross-device synchronization until actual Firebase upload/restore, concurrent-device conflict, interrupted upload, and API 23 device tests have passed. Automatic offline retry and generation garbage collection remain unimplemented.
