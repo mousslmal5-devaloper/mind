@@ -44,7 +44,9 @@ data class MindSavedState(
     val stepSensorInitialized: Boolean = false,
     val workoutSessions: List<WorkoutSession> = emptyList(),
     val foodEntries: List<FoodEntry> = emptyList(),
-    val journalEntries: List<JournalEntry> = emptyList()
+    val journalEntries: List<JournalEntry> = emptyList(),
+    val uiLanguage: String = "ar",
+    val uiAppearance: String = "dark"
 )
 
 private object MindPreferenceKeys {
@@ -69,6 +71,8 @@ private object MindPreferenceKeys {
     val workoutSessions = stringPreferencesKey("workout_sessions")
     val foodEntries = stringPreferencesKey("food_entries")
     val journalEntries = stringPreferencesKey("journal_entries")
+    val uiLanguage = stringPreferencesKey("ui_language")
+    val uiAppearance = stringPreferencesKey("ui_appearance")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -96,7 +100,9 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
         stepSensorInitialized = preferences[MindPreferenceKeys.stepSensorInitialized] ?: false,
         workoutSessions = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]"),
         foodEntries = decodeFoodEntries(preferences[MindPreferenceKeys.foodEntries] ?: "[]"),
-        journalEntries = decodeJournalEntries(preferences[MindPreferenceKeys.journalEntries] ?: "[]")
+        journalEntries = decodeJournalEntries(preferences[MindPreferenceKeys.journalEntries] ?: "[]"),
+        uiLanguage = preferences[MindPreferenceKeys.uiLanguage]?.takeIf { it == "ar" || it == "en" } ?: "ar",
+        uiAppearance = preferences[MindPreferenceKeys.uiAppearance]?.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
     )
 }
 
@@ -124,6 +130,15 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions(state.workoutSessions)
         preferences[MindPreferenceKeys.foodEntries] = encodeFoodEntries(state.foodEntries)
         preferences[MindPreferenceKeys.journalEntries] = encodeJournalEntries(state.journalEntries)
+        preferences[MindPreferenceKeys.uiLanguage] = if (state.uiLanguage == "en") "en" else "ar"
+        preferences[MindPreferenceKeys.uiAppearance] = state.uiAppearance.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
+    }
+}
+
+suspend fun saveMindUiSettings(context: Context, language: String, appearance: String) {
+    context.applicationContext.mindDataStore.edit { preferences ->
+        preferences[MindPreferenceKeys.uiLanguage] = if (language == "en") "en" else "ar"
+        preferences[MindPreferenceKeys.uiAppearance] = appearance.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
     }
 }
 
