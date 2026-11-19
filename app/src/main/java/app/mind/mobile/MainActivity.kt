@@ -210,7 +210,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
 
     LaunchedEffect(
         stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
-        habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode,
+        habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode, uiLanguage, uiAppearance,
         focusDurationMinutes, studySessions, workoutSessions, foodEntries, journalEntries
     ) {
         if (stateLoaded) {
@@ -238,7 +238,9 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                         studySessions = studySessions,
                         workoutSessions = workoutSessions,
                         foodEntries = foodEntries,
-                        journalEntries = journalEntries
+                        journalEntries = journalEntries,
+                        uiLanguage = uiLanguage,
+                        uiAppearance = uiAppearance
                     )
                 )
             }.onFailure { Log.e("MIND", "Unable to persist local app data", it) }
