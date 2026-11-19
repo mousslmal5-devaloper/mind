@@ -10,7 +10,9 @@ import android.app.TimePickerDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -60,17 +62,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val Gold = Color(0xFFE8C547)
+private data class MindPalette(
+    val background: Color, val surface: Color, val text: Color,
+    val muted: Color, val glass: Color, val glassBorder: Color
+)
+private val DarkMindPalette = MindPalette(Color(0xFF0D0D0F), Color(0xFF19191D), Color(0xFFF4F4F6), Color(0xFFA2A2AB), Color(0x0EFFFFFF), Color(0x17FFFFFF))
+private val LightMindPalette = MindPalette(Color(0xFFF5F5F7), Color(0xFFFFFFFF), Color(0xFF16161A), Color(0xFF6B6B75), Color(0xCCFFFFFF), Color(0x14000000))
+private val LocalMindPalette = androidx.compose.runtime.staticCompositionLocalOf { DarkMindPalette }
+private val Muted: Color @Composable get() = LocalMindPalette.current.muted
+private val Glass: Color @Composable get() = LocalMindPalette.current.glass
+private val GlassBorder: Color @Composable get() = LocalMindPalette.current.glassBorder
 private val Ink = Color(0xFF0D0D0F)
-private val Muted = Color(0xFFA2A2AB)
-private val Glass = Color(0x0EFFFFFF)
-private val GlassBorder = Color(0x17FFFFFF)
 private fun mindDateKey(timestamp: Long): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(timestamp))
 
 private val CairoFamily = androidx.compose.ui.text.font.FontFamily(
     androidx.compose.ui.text.font.Font(R.font.cairo_variable, weight = FontWeight.Normal)
 )
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     var sensorSteps by mutableIntStateOf(0)
     var sensorSupported by mutableStateOf(false)
     var sensorDelta by mutableIntStateOf(0)
@@ -163,6 +172,11 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         val saved = runCatching { loadMindSavedState(context) }
             .onFailure { Log.e("MIND", "Unable to restore local app data", it) }
             .getOrDefault(MindSavedState())
+        uiLanguage = saved.uiLanguage
+        uiAppearance = saved.uiAppearance
+        if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != saved.uiLanguage) {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(saved.uiLanguage))
+        }
         waterEntries = saved.waterEntries
         val todayStart = java.util.Calendar.getInstance().apply {
             set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -282,15 +296,21 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(
-        background = Ink, surface = Color(0xFF19191D), primary = Gold,
-        onPrimary = Color(0xFF15130A), onBackground = Color(0xFFF4F4F6),
-        onSurface = Color(0xFFF4F4F6)
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val useDark = uiAppearance == "dark" || (uiAppearance == "auto" && systemDark)
+    val palette = if (useDark) DarkMindPalette else LightMindPalette
+    MaterialTheme(colorScheme = if (useDark) darkColorScheme(
+        background = palette.background, surface = palette.surface, primary = Gold,
+        onPrimary = Color(0xFF15130A), onBackground = palette.text, onSurface = palette.text
+    ) else lightColorScheme(
+        background = palette.background, surface = palette.surface, primary = Color(0xFF9A7610),
+        onPrimary = Color.White, onBackground = palette.text, onSurface = palette.text
     )) {
         CompositionLocalProvider(
+            LocalMindPalette provides palette,
             LocalTextStyle provides MaterialTheme.typography.bodyLarge.copy(fontFamily = CairoFamily)
         ) {
-        BoxWithConstraints(Modifier.fillMaxSize().background(Ink)) {
+        BoxWithConstraints(Modifier.fillMaxSize().background(palette.background)) {
             val wideLayout = maxWidth >= 700.dp
             val expandedRail = maxWidth >= 1000.dp
             ReferenceAtmosphere()
@@ -408,7 +428,22 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     onDelete = { session -> sleepSessions = sleepSessions.filterNot { it.startedAt == session.startedAt } }
                                 )
                                 "notes" -> NotesScreen(noteText, { noteText = it })
-                                "settings", "me" -> SettingsScreen(onAccount = { page = "auth" })
+                                "settings", "me" -> SettingsScreen(
+                                    language = uiLanguage,
+                                    appearance = uiAppearance,
+                                    onLanguage = { selected ->
+                                        uiLanguage = selected
+                                        appScope.launch {
+                                            saveMindUiSettings(context, selected, uiAppearance)
+                                            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selected))
+                                        }
+                                    },
+                                    onAppearance = { selected ->
+                                        uiAppearance = selected
+                                        appScope.launch { saveMindUiSettings(context, uiLanguage, selected) }
+                                    },
+                                    onAccount = { page = "auth" }
+                                )
                                 "auth" -> AuthScreen(onSignedIn = { page = "home" })
                                 else -> Dashboard(
                                     habits = habits, habitMask = habitMask, water = water,
@@ -1302,14 +1337,40 @@ private fun NotesScreen(value: String, onValue: (String) -> Unit) {
 }
 
 @Composable
-private fun SettingsScreen(onAccount: () -> Unit) {
+private fun SettingsScreen(
+    language: String,
+    appearance: String,
+    onLanguage: (String) -> Unit,
+    onAppearance: (String) -> Unit,
+    onAccount: () -> Unit
+) {
+    val english = language == "en"
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         GlassCard {
-            Text("الإعدادات", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-            Text("المظهر الأصلي الداكن والذهبي والخلفية المتحركة", color = Muted, fontSize = 13.sp)
+            Text(if (english) "Settings" else "الإعدادات", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+            Text(if (english) "Personalize MIND" else "تخصيص تجربة MIND", color = Muted, fontSize = 13.sp)
         }
-        ModuleCard("الحساب", "تسجيل الدخول أو إنشاء حساب", "auth", Modifier.fillMaxWidth()) { onAccount() }
-        Text("إعدادات المظهر والصوت والنسخ الاحتياطي والمزامنة ستُربط ببنودها الأصلية من المرجع، دون إضافة خيارات خارج تصميمه.", color = Muted, fontSize = 12.sp)
+        GlassCard {
+            Text(if (english) "Appearance" else "المظهر", fontWeight = FontWeight.Bold, color = Gold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("dark" to (if (english) "Dark" else "داكن"), "light" to (if (english) "Light" else "فاتح"), "auto" to (if (english) "System" else "حسب الجهاز")).forEach { (key, label) ->
+                    FilterChip(
+                        selected = appearance == key,
+                        onClick = { onAppearance(key) },
+                        label = { Text(label) },
+                        leadingIcon = if (appearance == key) ({ Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.size(16.dp)) }) else null
+                    )
+                }
+            }
+        }
+        GlassCard {
+            Text(if (english) "Language" else "اللغة", fontWeight = FontWeight.Bold, color = Gold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = language == "ar", onClick = { onLanguage("ar") }, label = { Text("العربية") })
+                FilterChip(selected = language == "en", onClick = { onLanguage("en") }, label = { Text("English") })
+            }
+        }
+        ModuleCard(if (english) "Account" else "الحساب", if (english) "Sign in or create an account" else "تسجيل الدخول أو إنشاء حساب", "auth", Modifier.fillMaxWidth()) { onAccount() }
     }
 }
 
