@@ -50,7 +50,7 @@ private fun encodeMindMaps(maps: List<MindMapDocument>): String = JSONArray().ap
     }
 }.toString()
 
-private fun decodeMindMaps(raw: String): List<MindMapDocument> = runCatching {
+private fun decodeMindMaps(raw: String, english: Boolean): List<MindMapDocument> = runCatching {
     val a = JSONArray(raw)
     buildList {
         for (i in 0 until a.length()) {
@@ -64,7 +64,7 @@ private fun decodeMindMaps(raw: String): List<MindMapDocument> = runCatching {
                         n.optDouble("y").toFloat(), n.optLong("color", 0xFFE8C547L), if (parent == JSONObject.NULL) null else (parent as? Number)?.toLong()))
                 }
             }
-            add(MindMapDocument(m.optString("title", mindText("خريطة ذهنية", "Mind map")), m.optLong("background", MapBackgrounds.first()), nodes))
+            add(MindMapDocument(m.optString("title", mindString(english, "خريطة ذهنية", "Mind map")), m.optLong("background", MapBackgrounds.first()), nodes))
         }
     }
 }.getOrDefault(emptyList())
@@ -72,6 +72,7 @@ private fun decodeMindMaps(raw: String): List<MindMapDocument> = runCatching {
 @Composable
 fun MindMapScreen() {
     val context = LocalContext.current
+    val english = LocalMindLanguage.current == "en"
     val scope = rememberCoroutineScope()
     var maps by remember { mutableStateOf<List<MindMapDocument>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
@@ -86,13 +87,13 @@ fun MindMapScreen() {
 
     LaunchedEffect(Unit) {
         val raw = runCatching { context.mindMapDataStore.data.first()[MindMapKey] ?: "[]" }.getOrDefault("[]")
-        maps = decodeMindMaps(raw).ifEmpty { listOf(MindMapDocument(mindText("خريطة جديدة", "New map"), MapBackgrounds.first(),
-            listOf(MindMapNode(System.currentTimeMillis(), mindText("الفكرة الرئيسية", "Main idea"), 115f, 110f, 0xFFE8C547L, null)))) }
+        maps = decodeMindMaps(raw, english).ifEmpty { listOf(MindMapDocument(mindString(english, "خريطة جديدة", "New map"), MapBackgrounds.first(),
+            listOf(MindMapNode(System.currentTimeMillis(), mindString(english, "الفكرة الرئيسية", "Main idea"), 115f, 110f, 0xFFE8C547L, null)))) }
         loaded = true
     }
     LaunchedEffect(maps, loaded) {
         if (loaded) runCatching { context.mindMapDataStore.edit { it[MindMapKey] = encodeMindMaps(maps) } }
-            .onFailure { Toast.makeText(context, mindText("تعذر حفظ الخريطة", "Could not save the map"), Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, mindString(english, "تعذر حفظ الخريطة", "Could not save the map"), Toast.LENGTH_SHORT).show() }
     }
 
     val map = maps.getOrNull(activeMap)
@@ -111,36 +112,36 @@ fun MindMapScreen() {
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(mindText("الخرائط الذهنية", "Mind maps"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(mindString(english, "الخرائط الذهنية", "Mind maps"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
             maps.forEachIndexed { index, item ->
                 FilterChip(selected = activeMap == index, onClick = { activeMap = index; selectedId = null },
-                    label = { Text(item.title.ifBlank { mindText("خريطة ${index + 1}", "Map ${index + 1}") }, maxLines = 1) })
+                    label = { Text(item.title.ifBlank { mindString(english, "خريطة ${index + 1}", "Map ${index + 1}") }, maxLines = 1) })
             }
             OutlinedButton(onClick = {
                 val rootId = System.currentTimeMillis()
-                maps = maps + MindMapDocument(mindText("خريطة جديدة", "New map"), MapBackgrounds.first(),
-                    listOf(MindMapNode(rootId, mindText("الفكرة الرئيسية", "Main idea"), 115f, 110f, 0xFFE8C547L, null)))
+                maps = maps + MindMapDocument(mindString(english, "خريطة جديدة", "New map"), MapBackgrounds.first(),
+                    listOf(MindMapNode(rootId, mindString(english, "الفكرة الرئيسية", "Main idea"), 115f, 110f, 0xFFE8C547L, null)))
                 activeMap = maps.lastIndex
                 selectedId = rootId
             }) { Text("+") }
         }
         if (map != null) {
             OutlinedTextField(value = map.title, onValueChange = { value -> updateMap { it.copy(title = value) } },
-                label = { Text(mindText("عنوان الخريطة", "Map title")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text(mindString(english, "عنوان الخريطة", "Map title")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = { showAdd = true }, colors = ButtonDefaults.buttonColors(containerColor = MapGold, contentColor = Color(0xFF15130A))) { Text(mindText("إضافة فكرة", "Add idea")) }
-                OutlinedButton(onClick = { zoom = 1f; panX = 0f; panY = 0f }) { Text(mindText("إعادة العرض", "Reset view")) }
+                Button(onClick = { showAdd = true }, colors = ButtonDefaults.buttonColors(containerColor = MapGold, contentColor = Color(0xFF15130A))) { Text(mindString(english, "إضافة فكرة", "Add idea")) }
+                OutlinedButton(onClick = { zoom = 1f; panX = 0f; panY = 0f }) { Text(mindString(english, "إعادة العرض", "Reset view")) }
                 OutlinedButton(onClick = {
                     val body = buildString {
                         appendLine(map.title)
                         map.nodes.forEach { node -> appendLine("• " + node.text) }
                     }
                     val intent = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, body)
-                    context.startActivity(Intent.createChooser(intent, mindText("مشاركة الخريطة", "Share map")))
-                }) { Text(mindText("تصدير / مشاركة", "Export / Share")) }
+                    context.startActivity(Intent.createChooser(intent, mindString(english, "مشاركة الخريطة", "Share map")))
+                }) { Text(mindString(english, "تصدير / مشاركة", "Export / Share")) }
             }
-            Text(mindText("المساحة: اسحب العقد لتحريكها، واسحب الخلفية للتنقل، واستخدم إصبعين للتكبير والتصغير.", "Canvas: drag nodes to move them, drag the background to pan, and use two fingers to zoom."), color = Color(0xFFA2A2AB), style = MaterialTheme.typography.bodySmall)
+            Text(mindString(english, "المساحة: اسحب العقد لتحريكها، واسحب الخلفية للتنقل، واستخدم إصبعين للتكبير والتصغير.", "Canvas: drag nodes to move them, drag the background to pan, and use two fingers to zoom."), color = Color(0xFFA2A2AB), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.fillMaxWidth().height(420.dp).clip(RoundedCornerShape(22.dp))
                 .background(Color(map.background)).border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(22.dp))
                 .pointerInput(Unit) {
@@ -184,7 +185,7 @@ fun MindMapScreen() {
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(mindText("خلفية الخريطة", "Map background"), color = Color(0xFFA2A2AB), modifier = Modifier.align(Alignment.CenterVertically))
+                Text(mindString(english, "خلفية الخريطة", "Map background"), color = Color(0xFFA2A2AB), modifier = Modifier.align(Alignment.CenterVertically))
                 MapBackgrounds.forEach { color ->
                     Surface(onClick = { updateMap { it.copy(background = color) } }, modifier = Modifier.size(28.dp),
                         color = Color(color), shape = RoundedCornerShape(9.dp),
@@ -194,7 +195,7 @@ fun MindMapScreen() {
             if (selected != null) {
                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1B1B20))) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Text(mindText("تعديل الفكرة المحددة", "Edit selected idea"), color = MapGold, fontWeight = FontWeight.Bold)
+                        Text(mindString(english, "تعديل الفكرة المحددة", "Edit selected idea"), color = MapGold, fontWeight = FontWeight.Bold)
                         OutlinedTextField(value = editText, onValueChange = { editText = it }, modifier = Modifier.fillMaxWidth())
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             MapPalette.forEach { color ->
@@ -204,13 +205,13 @@ fun MindMapScreen() {
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = { updateMap { doc -> doc.copy(nodes = doc.nodes.map { if (it.id == selected.id) it.copy(text = editText.trim().ifBlank { it.text }) else it }) } },
-                                colors = ButtonDefaults.buttonColors(containerColor = MapGold, contentColor = Color(0xFF15130A))) { Text(mindText("حفظ التعديل", "Save changes")) }
+                                colors = ButtonDefaults.buttonColors(containerColor = MapGold, contentColor = Color(0xFF15130A))) { Text(mindString(english, "حفظ التعديل", "Save changes")) }
                             OutlinedButton(onClick = {
                                 updateMap { doc -> doc.copy(nodes = doc.nodes.filterNot { it.id == selected.id }.map {
                                     if (it.parentId == selected.id) it.copy(parentId = selected.parentId) else it
                                 }) }
                                 selectedId = null
-                            }) { Text(mindText("حذف الفكرة", "Delete idea")) }
+                            }) { Text(mindString(english, "حذف الفكرة", "Delete idea")) }
                         }
                     }
                 }
@@ -218,8 +219,8 @@ fun MindMapScreen() {
         }
     }
     if (showAdd) AlertDialog(onDismissRequest = { showAdd = false },
-        title = { Text(mindText("فكرة جديدة", "New idea")) },
-        text = { OutlinedTextField(value = newText, onValueChange = { newText = it }, label = { Text(mindText("اكتب الفكرة", "Write an idea")) }) },
-        confirmButton = { TextButton(onClick = { addNode(newText); newText = ""; showAdd = false }) { Text(mindText("إضافة", "Add")) } },
-        dismissButton = { TextButton(onClick = { showAdd = false }) { Text(mindText("إلغاء", "Cancel")) } })
+        title = { Text(mindString(english, "فكرة جديدة", "New idea")) },
+        text = { OutlinedTextField(value = newText, onValueChange = { newText = it }, label = { Text(mindString(english, "اكتب الفكرة", "Write an idea")) }) },
+        confirmButton = { TextButton(onClick = { addNode(newText); newText = ""; showAdd = false }) { Text(mindString(english, "إضافة", "Add")) } },
+        dismissButton = { TextButton(onClick = { showAdd = false }) { Text(mindString(english, "إلغاء", "Cancel")) } })
 }
