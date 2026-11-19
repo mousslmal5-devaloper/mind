@@ -25,11 +25,11 @@ Status: design approved for implementation planning; cloud sync is not implement
 
 ```
 users/{uid}/sync/meta
-users/{uid}/sync/snapshots/{generation}
-users/{uid}/sync/snapshots/{generation}/chunks/{feature}_{chunkIndex}
+users/{uid}/sync/meta/snapshots/{generation}
+users/{uid}/sync/meta/snapshots/{generation}/chunks/{feature}_{chunkIndex}
 ```
 
-The metadata document contains the schema version, active generation, revision, chunk manifest, and server update timestamp. A generation document describes its feature set and chunk counts. Chunk documents contain bounded portions of one feature's serialized records.
+The metadata document is `users/{uid}/sync/meta`. Its `snapshots` subcollection contains generation documents, and each generation document has a `chunks` subcollection. This follows Firestore's collection/document path alternation: metadata and generation are documents; snapshots and chunks are collections. The metadata document contains the schema version, active generation, revision, chunk manifest, and server update timestamp. A generation document describes its feature set and chunk counts. Chunk documents contain bounded portions of one feature's serialized records.
 
 Keep each chunk comfortably below Firestore's 1 MiB document limit (target at most 256 KiB serialized payload). Split histories by record count and measured serialized size; do not assume a fixed number of records always fits. Use deterministic record identifiers or stable chunk ordering so retries are idempotent.
 
