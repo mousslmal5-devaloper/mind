@@ -99,6 +99,8 @@ private object MindPreferenceKeys {
     val journalEntries = stringPreferencesKey("journal_entries")
     val uiLanguage = stringPreferencesKey("ui_language")
     val uiAppearance = stringPreferencesKey("ui_appearance")
+    val legacyImportOwnerHash = stringPreferencesKey("legacy_import_owner_hash")
+    val legacyImportStatus = stringPreferencesKey("legacy_import_status")
 }
 
 suspend fun loadMindSavedState(context: Context, uid: String? = null): MindSavedState {
@@ -159,6 +161,96 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState, uid: Str
         preferences[MindPreferenceKeys.foodEntries] = encodeFoodEntries(state.foodEntries)
         preferences[MindPreferenceKeys.journalEntries] = encodeJournalEntries(state.journalEntries)
     }
+}
+
+enum class LegacyMindImportResult {
+    Imported,
+    NoLegacyData,
+    AccountAlreadyHasData,
+    AlreadyImported,
+    OwnedByAnotherAccount,
+    Failed
+}
+
+private fun MindSavedState.hasImportableLegacyData(): Boolean =
+    water > 0 || waterEntries.isNotEmpty() || stepEntries.isNotEmpty() ||
+        studyMinutes > 0 || studySessions.isNotEmpty() ||
+        sleepHours > 0f || sleepSessions.isNotEmpty() ||
+        habitHistory.isNotEmpty() || habitMask != 0 ||
+        noteText.isNotBlank() || focusSeconds != 25 * 60 ||
+        focusMode != "تركيز" || focusDurationMinutes != 25 ||
+        workoutSessions.isNotEmpty() || foodEntries.isNotEmpty() ||
+        journalEntries.isNotEmpty()
+
+/**
+ * Imports legacy device data only after an explicit user action.
+ * A pending claim can be retried by the same UID after process death; another UID
+ * can never claim the same legacy store. Existing account content is never overwritten.
+ */
+suspend fun importLegacyMindData(context: Context, uid: String): LegacyMindImportResult {
+    if (uid.isBlank() || uid != uid.trim()) return LegacyMindImportResult.Failed
+    val appContext = context.applicationContext
+    val legacyStore = appContext.mindDataStore
+    val legacyState = runCatching { loadMindSavedState(appContext, null) }.getOrElse {
+        return LegacyMindImportResult.Failed
+    }
+    if (!legacyState.hasImportableLegacyData()) return LegacyMindImportResult.NoLegacyData
+
+    val ownerHash = MindStorageIdentity.accountKey(uid)
+    val initial = runCatching { legacyStore.data.first() }.getOrElse {
+        return LegacyMindImportResult.Failed
+    }
+    val recordedOwner = initial[MindPreferenceKeys.legacyImportOwnerHash]
+    val status = initial[MindPreferenceKeys.legacyImportStatus]
+    if (recordedOwner != null && recordedOwner != ownerHash) {
+        return LegacyMindImportResult.OwnedByAnotherAccount
+    }
+    if (recordedOwner == ownerHash && status == "complete") {
+        return LegacyMindImportResult.AlreadyImported
+    }
+
+    if (recordedOwner == null) {
+        val accountState = runCatching { loadMindSavedState(appContext, uid) }.getOrElse {
+            return LegacyMindImportResult.Failed
+        }
+        if (accountState.hasImportableLegacyData()) {
+            return LegacyMindImportResult.AccountAlreadyHasData
+        }
+        var claimAccepted = false
+        runCatching {
+            legacyStore.edit { preferences ->
+                val currentOwner = preferences[MindPreferenceKeys.legacyImportOwnerHash]
+                if (currentOwner == null) {
+                    preferences[MindPreferenceKeys.legacyImportOwnerHash] = ownerHash
+                    preferences[MindPreferenceKeys.legacyImportStatus] = "pending"
+                    claimAccepted = true
+                } else if (currentOwner == ownerHash) {
+                    claimAccepted = true
+                }
+            }
+        }.onFailure { return LegacyMindImportResult.Failed }
+        if (!claimAccepted) {
+            val latestOwner = runCatching { legacyStore.data.first()[MindPreferenceKeys.legacyImportOwnerHash] }.getOrNull()
+            return if (latestOwner == ownerHash) LegacyMindImportResult.Failed
+                else LegacyMindImportResult.OwnedByAnotherAccount
+        }
+    }
+
+    return runCatching {
+        val safeState = legacyState.copy(
+            activeSleepStartedAt = 0L,
+            steps = 0,
+            stepSensorInitialized = false
+        )
+        saveMindSavedState(appContext, safeState, uid)
+        legacyStore.edit { preferences ->
+            check(preferences[MindPreferenceKeys.legacyImportOwnerHash] == ownerHash) {
+                "Legacy data ownership changed during import"
+            }
+            preferences[MindPreferenceKeys.legacyImportStatus] = "complete"
+        }
+        LegacyMindImportResult.Imported
+    }.getOrElse { LegacyMindImportResult.Failed }
 }
 
 suspend fun saveMindUiSettings(context: Context, language: String, appearance: String) {
