@@ -338,7 +338,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     IconButton(onClick = { page = "home" }) {
-                                        Icon(Icons.Rounded.ArrowBack, "رجوع", tint = Gold)
+                                        Icon(Icons.Rounded.ArrowBack, mindText("رجوع", "Back"), tint = Gold)
                                     }
                                     Text(pageTitle(target), fontWeight = FontWeight.Bold, fontSize = 19.sp)
                                 }
@@ -489,13 +489,13 @@ private fun SideNavigation(page: String, expanded: Boolean, onSelect: (String) -
             fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp,
             textAlign = if (expanded) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.Center
         )
-        RailItem("الرئيسية", "home", Icons.Rounded.Home, page, expanded, onSelect)
-        RailItem("العادات", "habits", Icons.Rounded.CheckCircle, page, expanded, onSelect)
-        RailItem("الإحصائيات", "stats", Icons.Rounded.School, page, expanded, onSelect)
-        RailItem("الإنجازات", "awards", Icons.Rounded.CheckCircle, page, expanded, onSelect)
-        RailItem("حسابي", "me", Icons.Rounded.Settings, page, expanded, onSelect)
+        RailItem(mindText("الرئيسية", "Home"), "home", Icons.Rounded.Home, page, expanded, onSelect)
+        RailItem(mindText("العادات", "Habits"), "habits", Icons.Rounded.CheckCircle, page, expanded, onSelect)
+        RailItem(mindText("الإحصائيات", "Statistics"), "stats", Icons.Rounded.School, page, expanded, onSelect)
+        RailItem(mindText("الإنجازات", "Achievements"), "awards", Icons.Rounded.CheckCircle, page, expanded, onSelect)
+        RailItem(mindText("حسابي", "Account"), "me", Icons.Rounded.Settings, page, expanded, onSelect)
         Spacer(Modifier.weight(1f))
-        if (expanded) Text("عقلك، وقتك، حياتك", color = Muted, fontSize = 11.sp)
+        if (expanded) Text(mindText("عقلك، وقتك، حياتك", "Your mind, your time, your life"), color = Muted, fontSize = 11.sp)
     }
 }
 
@@ -526,11 +526,11 @@ private fun BottomNavigation(page: String, onSelect: (String) -> Unit) {
         contentColor = LocalMindPalette.current.text,
         tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
-        NavigationBarItem(page == "home", { onSelect("home") }, { Icon(Icons.Rounded.Home, null) }, label = { Text("الرئيسية", fontSize = 10.sp) })
-        NavigationBarItem(page == "habits", { onSelect("habits") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("العادات", fontSize = 10.sp) })
-        NavigationBarItem(page == "stats", { onSelect("stats") }, { Icon(Icons.Rounded.School, null) }, label = { Text("الإحصائيات", fontSize = 10.sp) })
-        NavigationBarItem(page == "awards", { onSelect("awards") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text("الإنجازات", fontSize = 10.sp) })
-        NavigationBarItem(page == "me" || page == "settings", { onSelect("me") }, { Icon(Icons.Rounded.Settings, null) }, label = { Text("حسابي", fontSize = 10.sp) })
+        NavigationBarItem(page == "home", { onSelect("home") }, { Icon(Icons.Rounded.Home, null) }, label = { Text(mindText("الرئيسية", "Home"), fontSize = 10.sp) })
+        NavigationBarItem(page == "habits", { onSelect("habits") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text(mindText("العادات", "Habits"), fontSize = 10.sp) })
+        NavigationBarItem(page == "stats", { onSelect("stats") }, { Icon(Icons.Rounded.School, null) }, label = { Text(mindText("الإحصائيات", "Statistics"), fontSize = 10.sp) })
+        NavigationBarItem(page == "awards", { onSelect("awards") }, { Icon(Icons.Rounded.CheckCircle, null) }, label = { Text(mindText("الإنجازات", "Achievements"), fontSize = 10.sp) })
+        NavigationBarItem(page == "me" || page == "settings", { onSelect("me") }, { Icon(Icons.Rounded.Settings, null) }, label = { Text(mindText("حسابي", "Account"), fontSize = 10.sp) })
     }
 }
 
@@ -542,7 +542,7 @@ private fun Dashboard(
 ) {
     val done = Integer.bitCount(habitMask)
     val progress = if (habits.isEmpty()) 0f else (done.toFloat() / habits.size).coerceIn(0f, 1f)
-    val quotes = listOf("الاستمرارية أهم من الكمال", "رحلة الألف ميل تبدأ بخطوة", "افعل اليوم ما يشكرك عليه غدك", "خطوة صغيرة كل يوم تصنع فرقاً كبيراً")
+    val quotes = listOf(mindText("الاستمرارية أهم من الكمال", "Consistency over perfection"), mindText("رحلة الألف ميل تبدأ بخطوة", "A journey of a thousand miles begins with one step"), mindText("افعل اليوم ما يشكرك عليه غدك", "Do today what your future self will thank you for"), mindText("خطوة صغيرة كل يوم تصنع فرقاً كبيراً", "A small step every day makes a big difference"))
     val quote = quotes[java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR) % quotes.size]
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 700.dp
@@ -553,8 +553,8 @@ private fun Dashboard(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(bottom = 2.dp)) {
-                    Text("أهلاً بك في MIND", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 35.sp)
-                    Text("عقلك، وقتك، حياتك", color = Muted, fontSize = 14.sp)
+                    Text(mindText("أهلاً بك في MIND", "Welcome to MIND"), fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 35.sp)
+                    Text(mindText("عقلك، وقتك، حياتك", "Your mind, your time, your life"), color = Muted, fontSize = 14.sp)
                 }
             }
             if (wide) {
@@ -599,9 +599,9 @@ private fun DailyProgressCard(progress: Float, done: Int, total: Int) {
                 Text("${(progress * 100).toInt()}%", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             }
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("إنجاز اليوم", color = Ink.copy(alpha = .75f), fontSize = 13.sp)
+                Text(mindText("إنجاز اليوم", "Today's progress"), color = Ink.copy(alpha = .75f), fontSize = 13.sp)
                 Text("$done من $total", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 38.sp)
-                Text("عادات مكتملة", color = Ink.copy(alpha = .78f), fontSize = 12.sp)
+                Text(mindText("عادات مكتملة", "Habits completed"), color = Ink.copy(alpha = .78f), fontSize = 12.sp)
             }
         }
     }
@@ -611,12 +611,12 @@ private fun DailyProgressCard(progress: Float, done: Int, total: Int) {
 private fun QuickAccessGrid(modifier: Modifier, onOpen: (String) -> Unit) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            QuickAccessCard("العادات", "تتبع يومك", "habits", Icons.Rounded.CheckCircle, Modifier.weight(1f), onOpen)
-            QuickAccessCard("النوم", "راحة أفضل", "sleep", Icons.Rounded.Bedtime, Modifier.weight(1f), onOpen)
+            QuickAccessCard(mindText("العادات", "Habits"), mindText("تتبع يومك", "Track your day"), "habits", Icons.Rounded.CheckCircle, Modifier.weight(1f), onOpen)
+            QuickAccessCard(mindText("النوم", "Sleep"), mindText("راحة أفضل", "Better rest"), "sleep", Icons.Rounded.Bedtime, Modifier.weight(1f), onOpen)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            QuickAccessCard("الدراسة", "جلسات التركيز", "study", Icons.Rounded.School, Modifier.weight(1f), onOpen)
-            QuickAccessCard("اللياقة", "الجري والحركة", "fitness", Icons.Rounded.DirectionsRun, Modifier.weight(1f), onOpen)
+            QuickAccessCard(mindText("الدراسة", "Study"), mindText("جلسات التركيز", "Focus sessions"), "study", Icons.Rounded.School, Modifier.weight(1f), onOpen)
+            QuickAccessCard(mindText("اللياقة", "Fitness"), mindText("الجري والحركة", "Running & movement"), "fitness", Icons.Rounded.DirectionsRun, Modifier.weight(1f), onOpen)
         }
     }
 }
@@ -649,9 +649,9 @@ private fun WaterSummaryCard(water: Int, goal: Int, onAdd: () -> Unit, onRemove:
     GlassCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Rounded.WaterDrop, contentDescription = null, tint = Color(0xFF5AA9FF), modifier = Modifier.size(20.dp))
-            Text("الماء", fontWeight = FontWeight.SemiBold)
+            Text(mindText("الماء", "Water"), fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
-            Text("$water / $goal أكواب", color = Muted, fontSize = 12.sp)
+            Text(mindText("$water / $goal أكواب", "$water / $goal cups"), color = Muted, fontSize = 12.sp)
             TextButton(onClick = onRemove, enabled = water > 0, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
                 Text("−", color = Gold, fontSize = 18.sp)
             }
@@ -664,16 +664,16 @@ private fun WaterSummaryCard(water: Int, goal: Int, onAdd: () -> Unit, onRemove:
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
             color = Color(0xFF5AA9FF), trackColor = Color(0x225AA9FF)
         )
-        Text("تقدمك نحو هدفك اليومي", color = Muted, fontSize = 11.sp)
+        Text(mindText("تقدمك نحو هدفك اليومي", "Your progress toward today's goal"), color = Muted, fontSize = 11.sp)
     }
 }
 
 @Composable
 private fun TodayHabitsCard(habits: List<String>, habitMask: Int, onToggle: (Int) -> Unit) {
     GlassCard {
-        Text("عادات اليوم", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Text(mindText("عادات اليوم", "Today's habits"), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         if (habits.isEmpty()) {
-            Text("لا توجد عادات بعد — أضف أولى عاداتك", color = Muted, fontSize = 12.sp)
+            Text(mindText("لا توجد عادات بعد — أضف أولى عاداتك", "No habits yet — add your first habit"), color = Muted, fontSize = 12.sp)
         } else {
             habits.take(3).forEachIndexed { index, habit ->
                 val checked = habitMask and (1 shl index) != 0
@@ -686,7 +686,7 @@ private fun TodayHabitsCard(habits: List<String>, habitMask: Int, onToggle: (Int
                     )
                     Text(habit, modifier = Modifier.weight(1f).padding(start = 10.dp), fontSize = 13.sp,
                         color = if (checked) Muted else Color(0xFFF4F4F6))
-                    Text(if (checked) "تم" else "اليوم", color = Muted, fontSize = 10.sp)
+                    Text(if (checked) mindText("تم", "Done") else mindText("اليوم", "Today"), color = Muted, fontSize = 10.sp)
                 }
             }
         }
@@ -732,8 +732,8 @@ private fun HabitsScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             GlassCard {
-                Text("عادات اليوم", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("${Integer.bitCount(mask)} من ${habits.size} مكتملة", color = Muted, fontSize = 13.sp)
+                Text(mindText("عادات اليوم", "Today's habits"), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(mindText("${Integer.bitCount(mask)} من ${habits.size} مكتملة", "${Integer.bitCount(mask)} of ${habits.size} completed"), color = Muted, fontSize = 13.sp)
                 LinearProgressIndicator(
                     progress = { if (habits.isEmpty()) 0f else Integer.bitCount(mask).toFloat() / habits.size },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(5.dp),
@@ -750,18 +750,18 @@ private fun HabitsScreen(
                 Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = done, onCheckedChange = { onToggle(index) }, colors = CheckboxDefaults.colors(checkedColor = Gold))
                     Text(habit, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                    Text(if (done) "مكتملة" else "اليوم", color = if (done) Gold else Muted, fontSize = 12.sp)
+                    Text(if (done) mindText("مكتملة", "Completed") else mindText("اليوم", "Today"), color = if (done) Gold else Muted, fontSize = 12.sp)
                 }
             }
         }
         item {
             GlassCard {
-                Text("إضافة عادة", fontWeight = FontWeight.Bold, color = Gold)
+                Text(mindText("إضافة عادة", "Add habit"), fontWeight = FontWeight.Bold, color = Gold)
                 OutlinedTextField(value = newHabit, onValueChange = onNewHabit, modifier = Modifier.fillMaxWidth(),
-                    label = { Text("اسم العادة") }, singleLine = true)
+                    label = { Text(mindText("اسم العادة", "Habit name")) }, singleLine = true)
                 Button(onClick = onAdd, enabled = newHabit.isNotBlank() && habits.size < 20,
                     modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
-                    Text("إضافة")
+                    Text(mindText("إضافة", "Add"))
                 }
             }
         }
@@ -787,25 +787,25 @@ private fun WaterScreen(water: Int, goal: Int, entries: List<WaterEntry>, add: (
     val peak = (hourly.maxOrNull() ?: 0).coerceAtLeast(1)
     Column(Modifier.fillMaxSize().padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         GlassCard {
-            Text("الماء", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text("تقدمك نحو الهدف اليومي", color = Muted, fontSize = 13.sp)
+            Text(mindText("الماء", "Water"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(mindText("تقدمك نحو الهدف اليومي", "Your progress toward today's goal"), color = Muted, fontSize = 13.sp)
             Box(Modifier.fillMaxWidth().padding(vertical = 18.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(progress = { (water.toFloat() / goal).coerceIn(0f, 1f) },
                     modifier = Modifier.size(170.dp), strokeWidth = 12.dp, color = Gold,
                     trackColor = Color(0x24FFFFFF), strokeCap = StrokeCap.Round)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("$water", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = Gold)
-                    Text("من $goal أكواب", color = Muted, fontSize = 12.sp)
+                    Text(mindText("من $goal أكواب", "of $goal cups"), color = Muted, fontSize = 12.sp)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = remove, modifier = Modifier.weight(1f)) { Text("−") }
-                Button(onClick = add, modifier = Modifier.weight(2f), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("إضافة كوب") }
+                Button(onClick = add, modifier = Modifier.weight(2f), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text(mindText("إضافة كوب", "Add a cup")) }
             }
         }
         GlassCard {
-            Text("التوزيع خلال اليوم", fontWeight = FontWeight.Bold)
-            Text("عدد الأكواب المسجلة في كل ساعة", color = Muted, fontSize = 12.sp)
+            Text(mindText("التوزيع خلال اليوم", "Distribution throughout the day"), fontWeight = FontWeight.Bold)
+            Text(mindText("عدد الأكواب المسجلة في كل ساعة", "Cups recorded each hour"), color = Muted, fontSize = 12.sp)
             Row(Modifier.fillMaxWidth().height(116.dp), horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.Bottom) {
                 hourly.forEachIndexed { hour, count ->
@@ -818,11 +818,11 @@ private fun WaterScreen(water: Int, goal: Int, entries: List<WaterEntry>, add: (
                     }
                 }
             }
-            Text("الإجمالي المسجل اليوم: ${hourly.sum()} كوب", color = Gold, fontSize = 12.sp)
+            Text(mindText("الإجمالي المسجل اليوم: ${hourly.sum()} كوب", "Total recorded today: ${hourly.sum()} cups"), color = Gold, fontSize = 12.sp)
         }
         GlassCard {
-            Text("الهدف اليومي", fontWeight = FontWeight.Bold)
-            Text("$goal أكواب", color = Gold, fontSize = 20.sp)
+            Text(mindText("الهدف اليومي", "Daily goal"), fontWeight = FontWeight.Bold)
+            Text(mindText("$goal أكواب", "$goal cups"), color = Gold, fontSize = 20.sp)
             Slider(value = goal.toFloat(), onValueChange = { setGoal(it.toInt().coerceAtLeast(1)) },
                 valueRange = 1f..20f, steps = 18, colors = SliderDefaults.colors(thumbColor = Gold, activeTrackColor = Gold))
         }
@@ -865,12 +865,12 @@ private fun StudyScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             GlassCard {
-                Text("الدراسة والتركيز", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                Text("جلسات التركيز والاستراحة", color = Muted, fontSize = 13.sp)
-                OutlinedButton(onClick = onOpenMindMap, modifier = Modifier.fillMaxWidth()) { Text("فتح الخرائط الذهنية") }
+                Text(mindText("الدراسة والتركيز", "Study & focus"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text(mindText("جلسات التركيز والاستراحة", "Focus and break sessions"), color = Muted, fontSize = 13.sp)
+                OutlinedButton(onClick = onOpenMindMap, modifier = Modifier.fillMaxWidth()) { Text(mindText("فتح الخرائط الذهنية", "Open mind maps")) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = mode == "تركيز", onClick = { onMode("تركيز") }, label = { Text("تركيز") })
-                    FilterChip(selected = mode == "استراحة", onClick = { onMode("استراحة") }, label = { Text("استراحة 5 د") })
+                    FilterChip(selected = mode == "استراحة", onClick = { onMode("استراحة") }, label = { Text(mindText("استراحة 5 د", "5 min break")) })
                 }
                 Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(
@@ -880,38 +880,38 @@ private fun StudyScreen(
                     )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("%02d:%02d".format(seconds / 60, seconds % 60), fontSize = 38.sp, fontWeight = FontWeight.Bold)
-                        Text(if (mode == "تركيز") "تركيز" else "راحة", color = Muted, fontSize = 12.sp)
+                        Text(if (mode == "تركيز") "تركيز" else mindText("راحة", "Break"), color = Muted, fontSize = 12.sp)
                     }
                 }
                 if (mode == "تركيز") {
-                    Text("مدة الجلسة", color = Muted, fontSize = 12.sp)
+                    Text(mindText("مدة الجلسة", "Session length"), color = Muted, fontSize = 12.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(15, 25, 45, 60).forEach { duration ->
                             FilterChip(selected = focusDurationMinutes == duration,
-                                onClick = { onPreset(duration) }, label = { Text("$duration د") })
+                                onClick = { onPreset(duration) }, label = { Text(mindText("$duration د", "$duration min")) })
                         }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(onClick = onToggle, modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
-                        Text(if (running) "إيقاف مؤقت" else "ابدأ")
+                        Text(if (running) mindText("إيقاف مؤقت", "Pause") else mindText("ابدأ", "Start"))
                     }
-                    OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f)) { Text("إعادة") }
+                    OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f)) { Text(mindText("إعادة", "Reset")) }
                 }
-                TextButton(onClick = onAddTime, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("+ 5 دقائق") }
+                TextButton(onClick = onAddTime, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(mindText("+ 5 دقائق", "+ 5 minutes")) }
             }
         }
         item {
             GlassCard {
-                Text("ملخص التركيز اليوم", color = Muted, fontSize = 13.sp)
-                Text("$todayMinutes دقيقة", color = Gold, fontSize = 29.sp, fontWeight = FontWeight.Bold)
-                Text("الإجمالي المسجل: $totalMinutes دقيقة · " + sessions.size + " جلسة", color = Muted, fontSize = 12.sp)
+                Text(mindText("ملخص التركيز اليوم", "Today's focus summary"), color = Muted, fontSize = 13.sp)
+                Text(mindText("$todayMinutes دقيقة", "$todayMinutes minutes"), color = Gold, fontSize = 29.sp, fontWeight = FontWeight.Bold)
+                Text(mindText("الإجمالي المسجل: $totalMinutes دقيقة · ", "Total recorded: $totalMinutes minutes · ") + sessions.size + mindText(" جلسة", " sessions"), color = Muted, fontSize = 12.sp)
             }
         }
         item {
             GlassCard {
-                Text("آخر 7 أيام", fontWeight = FontWeight.Bold)
+                Text(mindText("آخر 7 أيام", "Last 7 days"), fontWeight = FontWeight.Bold)
                 Row(Modifier.fillMaxWidth().height(132.dp).padding(top = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                     week.forEach { (label, value) ->
@@ -930,9 +930,9 @@ private fun StudyScreen(
                 }
             }
         }
-        item { Text("سجل الجلسات", fontWeight = FontWeight.Bold, color = Gold) }
+        item { Text(mindText("سجل الجلسات", "Session history"), fontWeight = FontWeight.Bold, color = Gold) }
         if (sessions.isEmpty()) {
-            item { Text("لا توجد جلسات مكتملة بعد. ستظهر جلساتك هنا تلقائياً.", color = Muted, fontSize = 13.sp) }
+            item { Text(mindText("لا توجد جلسات مكتملة بعد. ستظهر جلساتك هنا تلقائياً.", "No completed sessions yet. Your sessions will appear here automatically."), color = Muted, fontSize = 13.sp) }
         } else {
             items(sessions.sortedByDescending { it.completedAt }.take(30)) { session ->
                 val date = java.text.SimpleDateFormat("dd/MM/yyyy · HH:mm", java.util.Locale("ar"))
@@ -941,10 +941,10 @@ private fun StudyScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)) {
                     Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("جلسة تركيز", fontWeight = FontWeight.SemiBold)
+                            Text(mindText("جلسة تركيز", "Focus session"), fontWeight = FontWeight.SemiBold)
                             Text(date, color = Muted, fontSize = 11.sp)
                         }
-                        Text(session.durationMinutes.toString() + " د", color = Gold, fontWeight = FontWeight.Bold)
+                        Text(session.durationMinutes.toString() + mindText(" د", " min"), color = Gold, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -955,12 +955,12 @@ private fun StudyScreen(
 @Composable
 private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onOpenFood: () -> Unit, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
     val context = LocalContext.current
-    var workoutType by rememberSaveable { mutableStateOf("جري") }
+    var workoutType by rememberSaveable { mutableStateOf(mindText("جري", "Run")) }
     var tracking by rememberSaveable { mutableStateOf(false) }
     var distanceMeters by rememberSaveable { mutableFloatStateOf(0f) }
     var elapsedSeconds by rememberSaveable { mutableLongStateOf(0L) }
     var gpsReady by rememberSaveable { mutableStateOf(false) }
-    var gpsMessage by rememberSaveable { mutableStateOf("لم تبدأ جلسة بعد") }
+    var gpsMessage by rememberSaveable { mutableStateOf(mindText("لم تبدأ جلسة بعد", "No session started yet")) }
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -968,8 +968,8 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
             val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
             tracking = true
-            gpsMessage = "جارٍ الحصول على إشارة GPS"
-        } else gpsMessage = "يلزم السماح بالوصول إلى الموقع لقياس المسافة"
+            gpsMessage = mindText("جارٍ الحصول على إشارة GPS", "Getting GPS signal")
+        } else gpsMessage = mindText("يلزم السماح بالوصول إلى الموقع لقياس المسافة", "Location access is required to measure distance")
     }
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
@@ -983,7 +983,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                 if (intent.getBooleanExtra(GpsWorkoutService.EXTRA_COMPLETED, false)) {
                     val started = intent.getLongExtra(GpsWorkoutService.EXTRA_STARTED_AT, 0L)
                     val ended = intent.getLongExtra(GpsWorkoutService.EXTRA_ENDED_AT, 0L)
-                    val type = intent.getStringExtra(GpsWorkoutService.EXTRA_TYPE) ?: "جري"
+                    val type = intent.getStringExtra(GpsWorkoutService.EXTRA_TYPE) ?: mindText("جري", "Run")
                     val distance = intent.getFloatExtra(GpsWorkoutService.EXTRA_DISTANCE, 0f)
                     val duration = intent.getLongExtra(GpsWorkoutService.EXTRA_ELAPSED, 0L)
                     if (started > 0L && ended > started && duration >= 5L) {
@@ -1001,25 +1001,25 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
     LaunchedEffect(tracking) {
         while (tracking) { delay(1000); elapsedSeconds++ }
     }
-    val distanceText = if (distanceMeters >= 1000f) "%.2f كم".format(java.util.Locale.getDefault(), distanceMeters / 1000f) else "%d م".format(distanceMeters.toInt())
+    val distanceText = if (distanceMeters >= 1000f) mindText("%.2f كم", "%.2f km").format(java.util.Locale.getDefault(), distanceMeters / 1000f) else mindText("%d م", "%d m").format(distanceMeters.toInt())
     val timeText = "%02d:%02d:%02d".format(elapsedSeconds / 3600, (elapsedSeconds % 3600) / 60, elapsedSeconds % 60)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             GlassCard {
-                Text("الجري واللياقة", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                Text("تتبّع المسافة والمدة مباشرة عبر GPS الهاتف", color = Muted, fontSize = 13.sp)
+                Text(mindText("الجري واللياقة", "Running & fitness"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text(mindText("تتبّع المسافة والمدة مباشرة عبر GPS الهاتف", "Track distance and duration live using your phone's GPS"), color = Muted, fontSize = 13.sp)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("مشي", "جري", "دراجة").forEach { type ->
+                    listOf(mindText("مشي", "Walk"), mindText("جري", "Run"), mindText("دراجة", "Cycle")).forEach { type ->
                         FilterChip(selected = workoutType == type, onClick = { if (!tracking) workoutType = type }, label = { Text(type) }, enabled = !tracking)
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text("المسافة", color = Muted, fontSize = 12.sp)
+                        Text(mindText("المسافة", "Distance"), color = Muted, fontSize = 12.sp)
                         Text(distanceText, color = Gold, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text("المدة", color = Muted, fontSize = 12.sp)
+                        Text(mindText("المدة", "Duration"), color = Muted, fontSize = 12.sp)
                         Text(timeText, color = Gold, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1037,31 +1037,31 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                             val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
                             tracking = true
-                            gpsMessage = "جارٍ الحصول على إشارة GPS"
+                            gpsMessage = mindText("جارٍ الحصول على إشارة GPS", "Getting GPS signal")
                             distanceMeters = 0f
                             elapsedSeconds = 0L
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = if (tracking) Color(0xFFB94B4B) else Gold, contentColor = if (tracking) Color.White else Ink)
-                ) { Text(if (tracking) "إنهاء الجلسة" else "بدء ${workoutType}") }
+                ) { Text(if (tracking) mindText("إنهاء الجلسة", "Finish session") else mindText("بدء ${workoutType}", "Start ${workoutType}")) }
             }
         }
         item {
             GlassCard {
-                Text("خطوات اليوم", color = Gold, fontWeight = FontWeight.Bold)
+                Text(mindText("خطوات اليوم", "Today's steps"), color = Gold, fontWeight = FontWeight.Bold)
                 Text(steps.toString(), color = Gold, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-                Text(if (sensorAvailable) "تُقاس تلقائياً من مستشعر الخطوات" else "مستشعر الخطوات غير متاح حالياً", color = Muted, fontSize = 12.sp)
+                Text(if (sensorAvailable) mindText("تُقاس تلقائياً من مستشعر الخطوات", "Measured automatically by the step sensor") else mindText("مستشعر الخطوات غير متاح حالياً", "Step sensor is currently unavailable"), color = Muted, fontSize = 12.sp)
             }
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("سجل النشاط", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("تُحفظ الجلسات على هذا الجهاز تلقائياً", color = Muted, fontSize = 11.sp)
+                Text(mindText("سجل النشاط", "Activity history"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(mindText("تُحفظ الجلسات على هذا الجهاز تلقائياً", "Sessions are saved automatically on this device"), color = Muted, fontSize = 11.sp)
             }
         }
         if (sessions.isEmpty()) {
-            item { GlassCard { Text("لا توجد جلسات محفوظة بعد", color = Muted, fontSize = 13.sp) } }
+            item { GlassCard { Text(mindText("لا توجد جلسات محفوظة بعد", "No saved sessions yet"), color = Muted, fontSize = 13.sp) } }
         } else {
             items(sessions.sortedByDescending { it.endedAt }.take(50)) { session ->
                 GlassCard {
@@ -1069,13 +1069,13 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(session.type, fontWeight = FontWeight.Bold)
                             Text(java.text.SimpleDateFormat("dd/MM/yyyy · HH:mm", java.util.Locale("ar")).format(java.util.Date(session.startedAt)), color = Muted, fontSize = 11.sp)
-                            val distanceLabel = if (session.distanceMeters >= 1000f) "%.2f كم".format(session.distanceKm) else "%d م".format(session.distanceMeters.toInt())
-                            Text("${session.durationSeconds / 60L} دقيقة · $distanceLabel", color = Muted, fontSize = 12.sp)
+                            val distanceLabel = if (session.distanceMeters >= 1000f) mindText("%.2f كم", "%.2f km").format(session.distanceKm) else mindText("%d م", "%d m").format(session.distanceMeters.toInt())
+                            Text(mindText("${session.durationSeconds / 60L} دقيقة · $distanceLabel", "${session.durationSeconds / 60L} min · $distanceLabel"), color = Muted, fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("GPS", color = Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             TextButton(onClick = { onDeleteSession(session) }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                                Text("حذف", color = Muted, fontSize = 11.sp)
+                                Text(mindText("حذف", "Delete"), color = Muted, fontSize = 11.sp)
                             }
                         }
                     }
@@ -1084,14 +1084,14 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
         }
         item {
             GlassCard {
-                Text("التغذية", color = Gold, fontWeight = FontWeight.Bold)
-                Text("سجّل السعرات اليومية وتابع سجل التغذية", color = Muted, fontSize = 12.sp)
+                Text(mindText("التغذية", "Nutrition"), color = Gold, fontWeight = FontWeight.Bold)
+                Text(mindText("سجّل السعرات اليومية وتابع سجل التغذية", "Log your daily calories and track your nutrition"), color = Muted, fontSize = 12.sp)
                 Button(onClick = onOpenFood, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
-                    Text("فتح التغذية")
+                    Text(mindText("فتح التغذية", "Open nutrition"))
                 }
             }
         }
-        item { Text("ملاحظة: قياس المسافة يحتاج رؤية واضحة للأقمار الصناعية. قد تتأخر القراءة داخل المباني، ولن تُحتسب المواقع غير الدقيقة.", color = Muted, fontSize = 12.sp) }
+        item { Text(mindText("ملاحظة: قياس المسافة يحتاج رؤية واضحة للأقمار الصناعية. قد تتأخر القراءة داخل المباني، ولن تُحتسب المواقع غير الدقيقة.", "Note: Distance measurement requires a clear satellite signal. Readings may be delayed indoors, and inaccurate locations are ignored."), color = Muted, fontSize = 12.sp) }
     }
 }
 
@@ -1114,20 +1114,20 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
         item { SleepAlarmCard() }
         item {
             GlassCard {
-                Text("النوم", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("سجّل بداية نومك واستيقاظك لاحتساب المدة تلقائياً", color = Muted, fontSize = 13.sp)
+                Text(mindText("النوم", "Sleep"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(mindText("سجّل بداية نومك واستيقاظك لاحتساب المدة تلقائياً", "Record when you go to sleep and wake up to calculate duration automatically"), color = Muted, fontSize = 13.sp)
                 Text(
-                    if (active) "%d ساعة %02d دقيقة".format(activeMinutes / 60L, activeMinutes % 60L) else "%.1f ساعة".format(hours),
+                    if (active) mindText("%d ساعة %02d دقيقة", "%d hr %02d min").format(activeMinutes / 60L, activeMinutes % 60L) else mindText("%.1f ساعة", "%.1f hours").format(hours),
                     color = Gold, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp)
                 )
                 if (active) {
                     val started = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(activeStartedAt))
-                    Text("وقت البداية: $started · مدة الجلسة الحالية", color = Muted, fontSize = 12.sp)
-                    Button(onClick = onWake, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("تسجيل الاستيقاظ") }
+                    Text(mindText("وقت البداية: $started · مدة الجلسة الحالية", "Start time: $started · Current session duration"), color = Muted, fontSize = 12.sp)
+                    Button(onClick = onWake, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text(mindText("تسجيل الاستيقاظ", "Record wake-up")) }
                 } else {
-                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("بدء النوم") }
+                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text(mindText("بدء النوم", "Start sleep")) }
                 }
-                Text("الهدف المرجعي: 8 ساعات · المدة المقبولة للجلسة: حتى 16 ساعة", color = Muted, fontSize = 11.sp)
+                Text(mindText("الهدف المرجعي: 8 ساعات · المدة المقبولة للجلسة: حتى 16 ساعة", "Reference goal: 8 hours · Maximum accepted session: 16 hours"), color = Muted, fontSize = 11.sp)
             }
         }
         item {
@@ -1135,14 +1135,14 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
             val averageMinutes = recentSessions.takeIf { it.isNotEmpty() }?.map { it.durationMinutes }?.average()
             val goalProgress = ((averageMinutes ?: 0.0) / 480.0).toFloat().coerceIn(0f, 1f)
             GlassCard {
-                Text("ملخص النوم", color = Gold, fontWeight = FontWeight.Bold)
-                Text("عدد الجلسات: ${sessions.size}")
+                Text(mindText("ملخص النوم", "Sleep summary"), color = Gold, fontWeight = FontWeight.Bold)
+                Text(mindText("عدد الجلسات: ${sessions.size}", "Sessions: ${sessions.size}"))
                 Text(latest?.let { "آخر جلسة: %.1f ساعة".format(it.durationMinutes / 60f) } ?: "لا توجد جلسات مسجلة بعد", color = Muted, fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("متوسط آخر 7 جلسات", color = Muted, fontSize = 11.sp)
-                        Text(averageMinutes?.let { "%.1f ساعة".format(it / 60.0) } ?: "—", color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(averageMinutes?.let { mindText("%.1f ساعة", "%.1f hours").format(it / 60.0) } ?: "—", color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("مقارنة بهدف 8 ساعات", color = Muted, fontSize = 11.sp)
@@ -1220,11 +1220,11 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
                 Surface(color = Glass, shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorder)) {
                     Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("%.1f ساعة".format(session.durationMinutes / 60f), color = Gold, fontWeight = FontWeight.Bold)
+                            Text(mindText("%.1f ساعة", "%.1f hours").format(session.durationMinutes / 60f), color = Gold, fontWeight = FontWeight.Bold)
                             Text("من ${formatter.format(java.util.Date(session.startedAt))}", color = Muted, fontSize = 11.sp)
                             Text("إلى ${formatter.format(java.util.Date(session.endedAt))}", color = Muted, fontSize = 11.sp)
                         }
-                        TextButton(onClick = { onDelete(session) }) { Text("حذف", color = Muted) }
+                        TextButton(onClick = { onDelete(session) }) { Text(mindText("حذف", "Delete"), color = Muted) }
                     }
                 }
             }
@@ -1403,17 +1403,18 @@ private fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
+@Composable
 private fun pageTitle(page: String): String = when (page) {
-    "habits" -> "العادات"
-    "stats" -> "الإحصائيات"
-    "awards" -> "الإنجازات"
-    "me" -> "حسابي"
-    "water" -> "الماء"
-    "study" -> "الدراسة والتركيز"
-    "fitness" -> "الجري واللياقة"
-    "food" -> "التغذية"
+    "habits" -> mindText("العادات", "Habits")
+    "stats" -> mindText("الإحصائيات", "Statistics")
+    "awards" -> mindText("الإنجازات", "Achievements")
+    "me" -> mindText("حسابي", "Account")
+    "water" -> mindText("الماء", "Water")
+    "study" -> mindText("الدراسة والتركيز", "Study & focus")
+    "fitness" -> mindText("الجري واللياقة", "Running & fitness")
+    "food" -> mindText("التغذية", "Nutrition")
     "journal" -> "اليوميات"
-    "sleep" -> "النوم"
+    "sleep" -> mindText("النوم", "Sleep")
     "notes" -> "الملاحظات"
     "settings" -> "الإعدادات"
     "auth" -> "الحساب"
