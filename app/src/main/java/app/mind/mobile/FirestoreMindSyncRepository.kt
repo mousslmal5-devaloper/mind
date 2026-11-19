@@ -1,6 +1,5 @@
 package app.mind.mobile
 
-import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
@@ -214,8 +213,10 @@ internal class FirestoreMindSyncRepository(
 
     private suspend fun <T> Task<T>.awaitTask(): T =
         suspendCancellableCoroutine { continuation ->
-            val listener = OnCompleteListener<T> { task ->
-                if (!continuation.isActive) return@OnCompleteListener
+            // Google Play services Task listeners are one-shot and are not removable
+            // through the public Task API. Ignore completion after coroutine cancellation.
+            addOnCompleteListener { task ->
+                if (!continuation.isActive) return@addOnCompleteListener
                 if (task.isSuccessful) {
                     continuation.resume(task.result)
                 } else {
@@ -223,10 +224,6 @@ internal class FirestoreMindSyncRepository(
                         task.exception ?: IllegalStateException("Firebase operation failed")
                     )
                 }
-            }
-            addOnCompleteListener(listener)
-            continuation.invokeOnCancellation {
-                removeOnCompleteListener(listener)
             }
         }
 
