@@ -195,18 +195,21 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
     var accountReloadVersion by remember { mutableIntStateOf(0) }
 
-    // Keep the UI gate synchronized with Firebase even when sign-out or account
-    // changes happen outside this screen (for example, from another auth flow).
+    // Keep the listener aligned with the latest Compose state. The listener is
+    // registered once, so reading activeUid directly would capture its first value.
+    val currentActiveUid by rememberUpdatedState(activeUid)
     val firebaseAuth = remember { com.google.firebase.auth.FirebaseAuth.getInstance() }
     DisposableEffect(firebaseAuth) {
         val authListener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { auth ->
             val verifiedUid = auth.currentUser
                 ?.takeIf { it.isEmailVerified }
                 ?.uid
-            if (verifiedUid != activeUid) {
+            if (verifiedUid != currentActiveUid) {
                 activeUid = verifiedUid
                 focusRunning = false
                 legacyImportMessage = null
+                cloudSyncMessage = null
+                cloudSyncBusy = false
                 page = if (verifiedUid == null) "auth" else "home"
             }
         }
