@@ -70,7 +70,7 @@ internal object CloudSyncCodec {
             .sumOf { it.delta.coerceAtLeast(0) }
             .coerceIn(0, 100_000)
         val todayHabits = snapshot.habitHistory.lastOrNull { it.dateKey == today }?.completedMask ?: 0
-        val totalStudyMinutes = snapshot.studySessions.sumOf { it.durationMinutes.coerceAtLeast(0) }
+        val totalStudyMinutes = snapshot.studySessions.sumOf { it.durationMinutes.coerceAtLeast(0).toLong() }
             .coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
         val latestSleepHours = snapshot.sleepSessions.maxByOrNull { it.endedAt }
             ?.let { ((it.endedAt - it.startedAt).coerceAtLeast(0L) / 3_600_000f).coerceIn(0f, 16f) }
