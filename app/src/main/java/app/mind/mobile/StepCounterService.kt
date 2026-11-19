@@ -53,6 +53,10 @@ class StepCounterService : Service(), SensorEventListener {
         ownerUid = uid
         accountSuffix = MindStorageIdentity.accountKey(uid)
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getString(KEY_ACTIVE_ACCOUNT, null) != accountSuffix) {
+            // Do not attribute steps recorded while another account was active.
+            prefs.edit().putLong(key(KEY_RAW), -1L).putString(KEY_ACTIVE_ACCOUNT, accountSuffix).apply()
+        }
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(System.currentTimeMillis()))
         if (prefs.getString(key(KEY_DAY), null) != today) {
             prefs.edit().putString(key(KEY_DAY), today).putInt(key(KEY_DAILY), 0).putInt(key(KEY_SYNCED), 0).putLong(key(KEY_RAW), -1L).apply()
@@ -145,6 +149,7 @@ class StepCounterService : Service(), SensorEventListener {
         private const val KEY_RAW = "raw_total"
         private const val KEY_DAILY = "daily_total"
         private const val KEY_SYNCED = "synced_total"
+        private const val KEY_ACTIVE_ACCOUNT = "active_account_key"
         private const val CHANNEL_ID = "mind_step_counter"
         private const val NOTIFICATION_ID = 2601
     }
