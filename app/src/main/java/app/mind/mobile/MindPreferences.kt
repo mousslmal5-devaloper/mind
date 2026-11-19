@@ -258,6 +258,37 @@ suspend fun importLegacyMindData(context: Context, uid: String): LegacyMindImpor
     }.getOrElse { LegacyMindImportResult.Failed }
 }
 
+/**
+ * Writes a private, durable pre-restore copy before cloud data can replace local state.
+ * The latest five restore backups are retained in app-internal storage.
+ */
+suspend fun createMindRestoreBackup(context: Context, uid: String, state: MindSavedState): java.io.File =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        require(uid.isNotBlank() && uid == uid.trim()) { "A valid account is required" }
+        val directory = java.io.File(context.applicationContext.filesDir, "restore-backups").apply {
+            check(exists() || mkdirs()) { "Unable to create restore backup directory" }
+        }
+        val accountKey = MindStorageIdentity.accountKey(uid)
+        val target = java.io.File(directory, "$accountKey-${System.currentTimeMillis()}.json")
+        val temporary = java.io.File(directory, "${target.name}.tmp")
+        try {
+            java.io.FileOutputStream(temporary).use { output ->
+                output.write(com.google.gson.Gson().toJson(state).toByteArray(Charsets.UTF_8))
+                output.fd.sync()
+            }
+            check(temporary.renameTo(target)) { "Unable to finalize local restore backup" }
+            directory.listFiles()
+                ?.filter { it.isFile && it.name.startsWith("$accountKey-") && it.name.endsWith(".json") }
+                ?.sortedByDescending { it.lastModified() }
+                ?.drop(5)
+                ?.forEach { old -> runCatching { old.delete() } }
+            target
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
+        }
+    }
+
 suspend fun saveMindUiSettings(context: Context, language: String, appearance: String) {
     context.applicationContext.mindDataStore.edit { preferences ->
         preferences[MindPreferenceKeys.uiLanguage] = if (language == "en") "en" else "ar"
