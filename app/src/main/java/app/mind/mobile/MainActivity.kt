@@ -310,6 +310,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     )) {
         CompositionLocalProvider(
             LocalMindPalette provides palette,
+            LocalMindLanguage provides uiLanguage,
             LocalTextStyle provides MaterialTheme.typography.bodyLarge.copy(fontFamily = CairoFamily)
         ) {
         BoxWithConstraints(Modifier.fillMaxSize().background(palette.background)) {
