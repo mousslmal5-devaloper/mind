@@ -69,7 +69,7 @@ fun FoodScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text("التغذية", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+            Text(mindText("التغذية", "Nutrition"), fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
         }
         item {
             Column(
@@ -79,12 +79,12 @@ fun FoodScreen(
                 ).padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                Text("سعرات اليوم", color = Color(0xFF15130A), fontSize = 13.sp)
+                Text(mindText("سعرات اليوم", "Today's calories"), color = Color(0xFF15130A), fontSize = 13.sp)
                 Text(
                     String.format(Locale.getDefault(), "%.1f", totalToday),
                     color = Color(0xFF15130A), fontSize = 34.sp, fontWeight = FontWeight.ExtraBold
                 )
-                Text("سعرة حرارية", color = Color(0xFF15130A), fontSize = 12.sp)
+                Text(mindText("سعرة حرارية", "kcal"), color = Color(0xFF15130A), fontSize = 12.sp)
             }
         }
         item {
@@ -94,9 +94,9 @@ fun FoodScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("آخر 7 أيام", Modifier.weight(1f), color = FMuted, fontSize = 13.sp)
+                    Text(mindText("آخر 7 أيام", "Last 7 days"), Modifier.weight(1f), color = FMuted, fontSize = 13.sp)
                     Text(
-                        String.format(Locale.getDefault(), "%.0f سعرة", weekValues.sum()),
+                        String.format(Locale.getDefault(), mindText("%.0f سعرة", "%.0f kcal"), weekValues.sum()),
                         color = FGold, fontWeight = FontWeight.Bold, fontSize = 12.sp
                     )
                 }
@@ -132,14 +132,14 @@ fun FoodScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.Restaurant, null, tint = FGold)
-                    Text("إضافة سعرات", fontWeight = FontWeight.Bold)
+                    Text(mindText("إضافة سعرات", "Add calories"), fontWeight = FontWeight.Bold)
                 }
                 OutlinedTextField(
                     value = caloriesText,
                     onValueChange = { caloriesText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.replace(',', '.') },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("السعرات الحرارية") },
+                    label = { Text(mindText("السعرات الحرارية", "Calories")) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 Button(
@@ -156,14 +156,14 @@ fun FoodScreen(
                 ) {
                     Icon(Icons.Rounded.Add, null)
                     Spacer(Modifier.width(6.dp))
-                    Text("إضافة")
+                    Text(mindText("إضافة", "Add"))
                 }
             }
         }
-        item { Text("سجل التغذية", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+        item { Text(mindText("سجل التغذية", "Nutrition log"), fontSize = 17.sp, fontWeight = FontWeight.Bold) }
         if (entries.isEmpty()) {
             item {
-                Text("لا توجد سجلات بعد", color = FMuted, fontSize = 12.sp)
+                Text(mindText("لا توجد سجلات بعد", "No records yet"), color = FMuted, fontSize = 12.sp)
             }
         } else {
             items(entries.sortedByDescending { it.recordedAt }.take(30), key = { it.recordedAt }) { entry ->
@@ -173,11 +173,11 @@ fun FoodScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(String.format(Locale.getDefault(), "%.1f سعرة", entry.calories), color = FGold, fontWeight = FontWeight.Bold)
+                        Text(String.format(Locale.getDefault(), mindText("%.1f سعرة", "%.1f kcal"), entry.calories), color = FGold, fontWeight = FontWeight.Bold)
                         Text(featureDateLabel(entry.recordedAt), color = FMuted, fontSize = 10.sp)
                     }
                     IconButton(onClick = { onDelete(entry) }) {
-                        Icon(Icons.Rounded.DeleteOutline, "حذف", tint = FMuted)
+                        Icon(Icons.Rounded.DeleteOutline, mindText("حذف", "Delete"), tint = FMuted)
                     }
                 }
             }
@@ -197,7 +197,7 @@ fun JournalScreen(
         contentPadding = PaddingValues(18.dp, 12.dp, 18.dp, 112.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        item { Text("اليوميات", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold) }
+        item { Text(mindText("اليوميات", "Journal"), fontSize = 25.sp, fontWeight = FontWeight.ExtraBold) }
         item {
             Column(
                 Modifier.fillMaxWidth().background(FGlass, RoundedCornerShape(22.dp))
@@ -206,14 +206,14 @@ fun JournalScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.Book, null, tint = FGold)
-                    Text("إضافة يومية", fontWeight = FontWeight.Bold)
+                    Text(mindText("إضافة يومية", "Add journal entry"), fontWeight = FontWeight.Bold)
                 }
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    placeholder = { Text("اكتب هنا…") }
+                    placeholder = { Text(mindText("اكتب هنا…", "Write here…")) }
                 )
                 Button(
                     onClick = {
@@ -229,13 +229,13 @@ fun JournalScreen(
                 ) {
                     Icon(Icons.Rounded.Add, null)
                     Spacer(Modifier.width(6.dp))
-                    Text("إضافة")
+                    Text(mindText("إضافة", "Add"))
                 }
             }
         }
-        item { Text("سجل اليوميات", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+        item { Text(mindText("سجل اليوميات", "Journal history"), fontSize = 17.sp, fontWeight = FontWeight.Bold) }
         if (entries.isEmpty()) {
-            item { Text("لا توجد يوميات بعد", color = FMuted, fontSize = 12.sp) }
+            item { Text(mindText("لا توجد يوميات بعد", "No journal entries yet"), color = FMuted, fontSize = 12.sp) }
         } else {
             items(entries.sortedByDescending { it.recordedAt }.take(30), key = { it.recordedAt }) { entry ->
                 Row(
@@ -248,7 +248,7 @@ fun JournalScreen(
                         Text(featureDateLabel(entry.recordedAt), color = FMuted, fontSize = 10.sp)
                     }
                     IconButton(onClick = { onDelete(entry) }) {
-                        Icon(Icons.Rounded.DeleteOutline, "حذف", tint = FMuted)
+                        Icon(Icons.Rounded.DeleteOutline, mindText("حذف", "Delete"), tint = FMuted)
                     }
                 }
             }
