@@ -56,7 +56,6 @@ fun FoodScreen(
 ) {
     var caloriesText by rememberSaveable { mutableStateOf("") }
     val today = remember { featureDateKey(System.currentTimeMillis()) }
-    val todayEntries = entries.filter { featureDateKey(it.recordedAt) == today }
     val totalToday = foodCaloriesForDate(entries, today)
     val weekKeys = remember { lastSevenDayKeys() }
     val weekValues = weekKeys.map { key ->
@@ -106,14 +105,16 @@ fun FoodScreen(
                     val width = (size.width - gap * 6) / 7f
                     val baseline = size.height - 20.dp.toPx()
                     weekValues.forEachIndexed { index, value ->
-                        val height = (baseline - 8.dp.toPx()) * (value / weekMax)
-                        val left = index * (width + gap)
-                        drawRoundRect(
-                            color = FGold.copy(alpha = if (index == 6) 1f else .62f),
-                            topLeft = Offset(left, baseline - height),
-                            size = androidx.compose.ui.geometry.Size(width, height.coerceAtLeast(2.dp.toPx())),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(7.dp.toPx())
-                        )
+                        if (value > 0f) {
+                            val height = (baseline - 8.dp.toPx()) * (value / weekMax)
+                            val left = index * (width + gap)
+                            drawRoundRect(
+                                color = FGold.copy(alpha = if (index == 6) 1f else .62f),
+                                topLeft = Offset(left, baseline - height),
+                                size = androidx.compose.ui.geometry.Size(width, height.coerceAtLeast(2.dp.toPx())),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(7.dp.toPx())
+                            )
+                        }
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
