@@ -189,6 +189,11 @@ private fun MindSavedState.hasImportableLegacyData(): Boolean =
  */
 suspend fun importLegacyMindData(context: Context, uid: String): LegacyMindImportResult {
     if (uid.isBlank() || uid != uid.trim()) return LegacyMindImportResult.Failed
+    val authenticatedUid = runCatching {
+        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            ?.takeIf { it.isEmailVerified }?.uid
+    }.getOrNull()
+    if (authenticatedUid != uid) return LegacyMindImportResult.Failed
     val appContext = context.applicationContext
     val legacyStore = appContext.mindDataStore
     val legacyState = runCatching { loadMindSavedState(appContext, null) }.getOrElse {
