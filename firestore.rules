@@ -1,13 +1,73 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // Cloud-sync data is isolated to the authenticated user's UID.
-    match /users/{userId}/sync/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // The sync metadata document is the only published snapshot pointer.
+    match /users/{userId}/sync/meta {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasAll([
+          'activeGeneration', 'revision', 'schemaVersion',
+          'chunkCount', 'sha256', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'activeGeneration', 'revision', 'schemaVersion',
+          'chunkCount', 'sha256', 'updatedAt'
+        ])
+        && request.resource.data.activeGeneration is string
+        && request.resource.data.activeGeneration.size() > 0
+        && request.resource.data.revision is int
+        && request.resource.data.revision > 0
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.chunkCount is int
+        && request.resource.data.chunkCount >= 1
+        && request.resource.data.chunkCount <= 256
+        && request.resource.data.sha256 is string
+        && request.resource.data.sha256.matches('^[0-9a-f]{64}$')
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
+
+      match /snapshots/{generationId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll([
+            'schemaVersion', 'revision', 'chunkCount', 'sha256', 'encoding'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'schemaVersion', 'revision', 'chunkCount', 'sha256', 'encoding'
+          ])
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.revision is int
+          && request.resource.data.revision > 0
+          && request.resource.data.chunkCount is int
+          && request.resource.data.chunkCount >= 1
+          && request.resource.data.chunkCount <= 256
+          && request.resource.data.sha256 is string
+          && request.resource.data.sha256.matches('^[0-9a-f]{64}$')
+          && request.resource.data.encoding == 'base64-utf8';
+        allow delete: if false;
+
+        match /chunks/{chunkId} {
+          allow read: if isOwner(userId);
+          allow create, update: if isOwner(userId)
+            && request.resource.data.keys().hasAll(['index', 'payload'])
+            && request.resource.data.keys().hasOnly(['index', 'payload'])
+            && request.resource.data.index is int
+            && request.resource.data.index >= 0
+            && request.resource.data.index < 256
+            && request.resource.data.payload is string
+            && request.resource.data.payload.size() > 0
+            && request.resource.data.payload.size() <= 184320;
+          allow delete: if false;
+        }
+      }
     }
   }
 }
