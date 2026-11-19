@@ -87,7 +87,7 @@ fun AuthScreen(onSignedIn: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(if (createAccount) mindString(english, "إنشاء حساب MIND", "Create a MIND account") else mindString(english, "تسجيل الدخول", "Sign in"))
-        Text(mindString(english, "تسجيل الدخول وإدارة حسابك متاحان. بيانات MIND محفوظة محلياً حالياً؛ المزامنة السحابية لم تُفعّل بعد.", "Sign-in and account management are available. MIND data is currently stored on this device; cloud sync is not enabled yet."))
+        Text(mindString(english, "سجّل الدخول للوصول إلى بياناتك على هذا الجهاز. يمكنك من الإعدادات رفع نسخة سحابية يدوياً أو التحقق من نسخة موجودة واستعادتها؛ المزامنة التلقائية بين الأجهزة غير مفعّلة بعد.", "Sign in to access your data on this device. Settings lets you manually upload a cloud backup or check and restore an existing one; automatic cross-device sync is not enabled yet."))
         if (configError) {
             Text(mindString(english, "لم يتم تهيئة Firebase لهذا التطبيق بعد. أضف google-services.json الخاص بالحزمة app.mind.mobile وفعّل Email/Password في Firebase Console.", "Firebase is not configured for this app yet. Add the google-services.json for package app.mind.mobile and enable Email/Password in Firebase Console."))
         } else {
