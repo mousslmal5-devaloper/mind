@@ -167,6 +167,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     val context = LocalContext.current
     val appScope = rememberCoroutineScope()
     var stateLoaded by rememberSaveable { mutableStateOf(false) }
+    var uiLanguage by rememberSaveable { mutableStateOf("ar") }
+    var uiAppearance by rememberSaveable { mutableStateOf("dark") }
 
     LaunchedEffect(Unit) {
         val saved = runCatching { loadMindSavedState(context) }
