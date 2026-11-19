@@ -869,7 +869,7 @@ private fun StudyScreen(
                 Text(mindText("جلسات التركيز والاستراحة", "Focus and break sessions"), color = Muted, fontSize = 13.sp)
                 OutlinedButton(onClick = onOpenMindMap, modifier = Modifier.fillMaxWidth()) { Text(mindText("فتح الخرائط الذهنية", "Open mind maps")) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = mode == "تركيز", onClick = { onMode("تركيز") }, label = { Text("تركيز") })
+                    FilterChip(selected = mode == "تركيز", onClick = { onMode("تركيز") }, label = { Text(mindText("تركيز", "Focus")) })
                     FilterChip(selected = mode == "استراحة", onClick = { onMode("استراحة") }, label = { Text(mindText("استراحة 5 د", "5 min break")) })
                 }
                 Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
@@ -880,7 +880,7 @@ private fun StudyScreen(
                     )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("%02d:%02d".format(seconds / 60, seconds % 60), fontSize = 38.sp, fontWeight = FontWeight.Bold)
-                        Text(if (mode == "تركيز") "تركيز" else mindText("راحة", "Break"), color = Muted, fontSize = 12.sp)
+                        Text(if (mode == "تركيز") mindText("تركيز", "Focus") else mindText("راحة", "Break"), color = Muted, fontSize = 12.sp)
                     }
                 }
                 if (mode == "تركيز") {
