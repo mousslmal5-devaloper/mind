@@ -88,6 +88,12 @@ class MainActivity : AppCompatActivity() {
     private val stepReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action != StepCounterService.ACTION_STEP_UPDATE) return
+            val broadcastUid = intent.getStringExtra(StepCounterService.EXTRA_UID)
+            val currentUid = runCatching {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    ?.takeIf { it.isEmailVerified }?.uid
+            }.getOrNull()
+            if (broadcastUid.isNullOrBlank() || broadcastUid != currentUid) return
             sensorSupported = intent.getBooleanExtra(StepCounterService.EXTRA_SUPPORTED, false)
             sensorSteps = intent.getIntExtra(StepCounterService.EXTRA_TOTAL, 0).coerceIn(0, 100000)
             sensorDelta = intent.getIntExtra(StepCounterService.EXTRA_DELTA, 0).coerceIn(0, 100000)
@@ -95,6 +101,7 @@ class MainActivity : AppCompatActivity() {
             val ack = Intent(this@MainActivity, StepCounterService::class.java)
                 .setAction(StepCounterService.ACTION_ACK)
                 .putExtra(StepCounterService.EXTRA_TOTAL, sensorSteps)
+                .putExtra(StepCounterService.EXTRA_UID, currentUid)
             startService(ack)
         }
     }
@@ -125,7 +132,12 @@ class MainActivity : AppCompatActivity() {
             requestPermissions(arrayOf(Manifest.permission.ACTIVITY_RECOGNITION), REQUEST_ACTIVITY_RECOGNITION)
             return
         }
+        val uid = runCatching {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                ?.takeIf { it.isEmailVerified }?.uid
+        }.getOrNull() ?: return
         val serviceIntent = Intent(this, StepCounterService::class.java)
+            .putExtra(StepCounterService.EXTRA_UID, uid)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent) else startService(serviceIntent)
     }
 
@@ -1129,7 +1141,7 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
     val activeMinutes = if (active) ((clockNow - activeStartedAt).coerceAtLeast(0L) / 60_000L) else 0L
     val latest = sessions.maxByOrNull { it.endedAt }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { SleepAlarmCard() }
+        item { SleepAlarmCard(activeUid) }
         item {
             GlassCard {
                 Text(mindText("النوم", "Sleep"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -1252,9 +1264,9 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
 
 
 @Composable
-private fun SleepAlarmCard() {
+private fun SleepAlarmCard(userId: String?) {
     val context = LocalContext.current
-    var settings by remember { mutableStateOf(SleepAlarm.read(context)) }
+    var settings by remember(userId) { mutableStateOf(userId?.let { SleepAlarm.read(context, it) } ?: SleepAlarm.Settings(false, 7, 0, "none", null)) }
     var soundMenuExpanded by remember { mutableStateOf(false) }
     val timeLabel = "%02d:%02d".format(settings.hour, settings.minute)
     val soundPicker = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -1266,10 +1278,10 @@ private fun SleepAlarmCard() {
                     uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             }.onFailure { Log.w("MIND", "Could not persist alarm audio permission", it) }
-            SleepAlarm.saveSound(context, "file", uri.toString())
+            userId?.let { SleepAlarm.saveSound(context, it, "file", uri.toString()) }
             settings = settings.copy(sound = "file", soundUri = uri.toString())
         } else if (settings.sound == "file" && settings.soundUri == null) {
-            SleepAlarm.saveSound(context, "none")
+            userId?.let { SleepAlarm.saveSound(context, it, "none") }
             settings = settings.copy(sound = "none")
         }
     }
@@ -1287,7 +1299,7 @@ private fun SleepAlarmCard() {
             Switch(
                 checked = settings.enabled,
                 onCheckedChange = { enabled ->
-                    SleepAlarm.saveAndSchedule(context, settings.hour, settings.minute, enabled)
+                    userId?.let { SleepAlarm.saveAndSchedule(context, it, settings.hour, settings.minute, enabled) }
                     settings = settings.copy(enabled = enabled)
                 },
                 colors = SwitchDefaults.colors(checkedThumbColor = Ink, checkedTrackColor = Gold)
@@ -1298,7 +1310,7 @@ private fun SleepAlarmCard() {
                 TimePickerDialog(
                     context,
                     { _, hour, minute ->
-                        SleepAlarm.saveAndSchedule(context, hour, minute, settings.enabled)
+                        userId?.let { SleepAlarm.saveAndSchedule(context, it, hour, minute, settings.enabled) }
                         settings = settings.copy(hour = hour, minute = minute)
                     },
                     settings.hour,
@@ -1325,7 +1337,7 @@ private fun SleepAlarmCard() {
                     text = { Text(mindText("نغمة هادئة", "Gentle tone")) },
                     onClick = {
                         soundMenuExpanded = false
-                        SleepAlarm.saveSound(context, "beep")
+                        userId?.let { SleepAlarm.saveSound(context, it, "beep") }
                         settings = settings.copy(sound = "beep", soundUri = null)
                     }
                 )
