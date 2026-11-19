@@ -20,6 +20,8 @@ data class StepEntry(val recordedAt: Long, val delta: Int)
 data class HabitDayRecord(val dateKey: String, val completedMask: Int, val habitCount: Int)
 data class SleepSession(val startedAt: Long, val endedAt: Long) { val durationMinutes: Int get() = ((endedAt - startedAt) / 60000L).toInt() }
 data class WorkoutSession(val startedAt: Long, val endedAt: Long, val type: String, val distanceMeters: Float, val durationSeconds: Long) { val distanceKm: Float get() = distanceMeters / 1000f }
+data class FoodEntry(val recordedAt: Long, val calories: Double)
+data class JournalEntry(val recordedAt: Long, val text: String)
 
 data class MindSavedState(
     val water: Int = 0,
@@ -40,7 +42,9 @@ data class MindSavedState(
     val stepEntries: List<StepEntry> = emptyList(),
     val habitHistory: List<HabitDayRecord> = emptyList(),
     val stepSensorInitialized: Boolean = false,
-    val workoutSessions: List<WorkoutSession> = emptyList()
+    val workoutSessions: List<WorkoutSession> = emptyList(),
+    val foodEntries: List<FoodEntry> = emptyList(),
+    val journalEntries: List<JournalEntry> = emptyList()
 )
 
 private object MindPreferenceKeys {
@@ -63,6 +67,8 @@ private object MindPreferenceKeys {
     val habitHistory = stringPreferencesKey("habit_history")
     val stepSensorInitialized = booleanPreferencesKey("step_sensor_initialized")
     val workoutSessions = stringPreferencesKey("workout_sessions")
+    val foodEntries = stringPreferencesKey("food_entries")
+    val journalEntries = stringPreferencesKey("journal_entries")
 }
 
 suspend fun loadMindSavedState(context: Context): MindSavedState {
@@ -88,7 +94,9 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
         stepEntries = decodeStepEntries(preferences[MindPreferenceKeys.stepEntries] ?: "[]"),
         habitHistory = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]"),
         stepSensorInitialized = preferences[MindPreferenceKeys.stepSensorInitialized] ?: false,
-        workoutSessions = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]")
+        workoutSessions = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]"),
+        foodEntries = decodeFoodEntries(preferences[MindPreferenceKeys.foodEntries] ?: "[]"),
+        journalEntries = decodeJournalEntries(preferences[MindPreferenceKeys.journalEntries] ?: "[]")
     )
 }
 
@@ -114,9 +122,43 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
         preferences[MindPreferenceKeys.habitHistory] = encodeHabitHistory(state.habitHistory)
         preferences[MindPreferenceKeys.stepSensorInitialized] = state.stepSensorInitialized
         preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions(state.workoutSessions)
+        preferences[MindPreferenceKeys.foodEntries] = encodeFoodEntries(state.foodEntries)
+        preferences[MindPreferenceKeys.journalEntries] = encodeJournalEntries(state.journalEntries)
     }
 }
 
+
+private fun encodeFoodEntries(entries: List<FoodEntry>): String = JSONArray().apply {
+    entries.takeLast(20000).forEach { put(JSONObject().put("recordedAt", it.recordedAt).put("calories", it.calories)) }
+}.toString()
+
+private fun decodeFoodEntries(raw: String): List<FoodEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("recordedAt", 0L)
+            val calories = item.optDouble("calories", Double.NaN)
+            if (timestamp > 0L && calories.isFinite() && calories > 0.0) add(FoodEntry(timestamp, calories))
+        }
+    }.takeLast(20000)
+}.getOrDefault(emptyList())
+
+private fun encodeJournalEntries(entries: List<JournalEntry>): String = JSONArray().apply {
+    entries.takeLast(20000).forEach { put(JSONObject().put("recordedAt", it.recordedAt).put("text", it.text)) }
+}.toString()
+
+private fun decodeJournalEntries(raw: String): List<JournalEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("recordedAt", 0L)
+            val text = item.optString("text", "").trim()
+            if (timestamp > 0L && text.isNotEmpty()) add(JournalEntry(timestamp, text))
+        }
+    }.takeLast(20000)
+}.getOrDefault(emptyList())
 
 private fun encodeStudySessions(sessions: List<StudySession>): String {
     val array = JSONArray()
