@@ -955,12 +955,13 @@ private fun StudyScreen(
 @Composable
 private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, onOpenFood: () -> Unit, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
     val context = LocalContext.current
-    var workoutType by rememberSaveable { mutableStateOf(mindText("جري", "Run")) }
+    val english = LocalMindLanguage.current == "en"
+    var workoutType by rememberSaveable { mutableStateOf(mindString(english, "جري", "Run")) }
     var tracking by rememberSaveable { mutableStateOf(false) }
     var distanceMeters by rememberSaveable { mutableFloatStateOf(0f) }
     var elapsedSeconds by rememberSaveable { mutableLongStateOf(0L) }
     var gpsReady by rememberSaveable { mutableStateOf(false) }
-    var gpsMessage by rememberSaveable { mutableStateOf(mindText("لم تبدأ جلسة بعد", "No session started yet")) }
+    var gpsMessage by rememberSaveable { mutableStateOf(mindString(english, "لم تبدأ جلسة بعد", "No session started yet")) }
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -968,8 +969,8 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
             val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
             tracking = true
-            gpsMessage = mindText("جارٍ الحصول على إشارة GPS", "Getting GPS signal")
-        } else gpsMessage = mindText("يلزم السماح بالوصول إلى الموقع لقياس المسافة", "Location access is required to measure distance")
+            gpsMessage = mindString(english, "جارٍ الحصول على إشارة GPS", "Getting GPS signal")
+        } else gpsMessage = mindString(english, "يلزم السماح بالوصول إلى الموقع لقياس المسافة", "Location access is required to measure distance")
     }
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
@@ -983,7 +984,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                 if (intent.getBooleanExtra(GpsWorkoutService.EXTRA_COMPLETED, false)) {
                     val started = intent.getLongExtra(GpsWorkoutService.EXTRA_STARTED_AT, 0L)
                     val ended = intent.getLongExtra(GpsWorkoutService.EXTRA_ENDED_AT, 0L)
-                    val type = intent.getStringExtra(GpsWorkoutService.EXTRA_TYPE) ?: mindText("جري", "Run")
+                    val type = intent.getStringExtra(GpsWorkoutService.EXTRA_TYPE) ?: mindString(english, "جري", "Run")
                     val distance = intent.getFloatExtra(GpsWorkoutService.EXTRA_DISTANCE, 0f)
                     val duration = intent.getLongExtra(GpsWorkoutService.EXTRA_ELAPSED, 0L)
                     if (started > 0L && ended > started && duration >= 5L) {
@@ -1001,25 +1002,25 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
     LaunchedEffect(tracking) {
         while (tracking) { delay(1000); elapsedSeconds++ }
     }
-    val distanceText = if (distanceMeters >= 1000f) mindText("%.2f كم", "%.2f km").format(java.util.Locale.getDefault(), distanceMeters / 1000f) else mindText("%d م", "%d m").format(distanceMeters.toInt())
+    val distanceText = if (distanceMeters >= 1000f) mindString(english, "%.2f كم", "%.2f km").format(java.util.Locale.getDefault(), distanceMeters / 1000f) else mindString(english, "%d م", "%d m").format(distanceMeters.toInt())
     val timeText = "%02d:%02d:%02d".format(elapsedSeconds / 3600, (elapsedSeconds % 3600) / 60, elapsedSeconds % 60)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             GlassCard {
-                Text(mindText("الجري واللياقة", "Running & fitness"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                Text(mindText("تتبّع المسافة والمدة مباشرة عبر GPS الهاتف", "Track distance and duration live using your phone's GPS"), color = Muted, fontSize = 13.sp)
+                Text(mindString(english, "الجري واللياقة", "Running & fitness"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text(mindString(english, "تتبّع المسافة والمدة مباشرة عبر GPS الهاتف", "Track distance and duration live using your phone's GPS"), color = Muted, fontSize = 13.sp)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(mindText("مشي", "Walk"), mindText("جري", "Run"), mindText("دراجة", "Cycle")).forEach { type ->
+                    listOf(mindString(english, "مشي", "Walk"), mindString(english, "جري", "Run"), mindString(english, "دراجة", "Cycle")).forEach { type ->
                         FilterChip(selected = workoutType == type, onClick = { if (!tracking) workoutType = type }, label = { Text(type) }, enabled = !tracking)
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text(mindText("المسافة", "Distance"), color = Muted, fontSize = 12.sp)
+                        Text(mindString(english, "المسافة", "Distance"), color = Muted, fontSize = 12.sp)
                         Text(distanceText, color = Gold, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(mindText("المدة", "Duration"), color = Muted, fontSize = 12.sp)
+                        Text(mindString(english, "المدة", "Duration"), color = Muted, fontSize = 12.sp)
                         Text(timeText, color = Gold, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1037,31 +1038,31 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                             val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
                             tracking = true
-                            gpsMessage = mindText("جارٍ الحصول على إشارة GPS", "Getting GPS signal")
+                            gpsMessage = mindString(english, "جارٍ الحصول على إشارة GPS", "Getting GPS signal")
                             distanceMeters = 0f
                             elapsedSeconds = 0L
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = if (tracking) Color(0xFFB94B4B) else Gold, contentColor = if (tracking) Color.White else Ink)
-                ) { Text(if (tracking) mindText("إنهاء الجلسة", "Finish session") else mindText("بدء ${workoutType}", "Start ${workoutType}")) }
+                ) { Text(if (tracking) mindString(english, "إنهاء الجلسة", "Finish session") else mindString(english, "بدء ${workoutType}", "Start ${workoutType}")) }
             }
         }
         item {
             GlassCard {
-                Text(mindText("خطوات اليوم", "Today's steps"), color = Gold, fontWeight = FontWeight.Bold)
+                Text(mindString(english, "خطوات اليوم", "Today's steps"), color = Gold, fontWeight = FontWeight.Bold)
                 Text(steps.toString(), color = Gold, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-                Text(if (sensorAvailable) mindText("تُقاس تلقائياً من مستشعر الخطوات", "Measured automatically by the step sensor") else mindText("مستشعر الخطوات غير متاح حالياً", "Step sensor is currently unavailable"), color = Muted, fontSize = 12.sp)
+                Text(if (sensorAvailable) mindString(english, "تُقاس تلقائياً من مستشعر الخطوات", "Measured automatically by the step sensor") else mindString(english, "مستشعر الخطوات غير متاح حالياً", "Step sensor is currently unavailable"), color = Muted, fontSize = 12.sp)
             }
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(mindText("سجل النشاط", "Activity history"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(mindText("تُحفظ الجلسات على هذا الجهاز تلقائياً", "Sessions are saved automatically on this device"), color = Muted, fontSize = 11.sp)
+                Text(mindString(english, "سجل النشاط", "Activity history"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(mindString(english, "تُحفظ الجلسات على هذا الجهاز تلقائياً", "Sessions are saved automatically on this device"), color = Muted, fontSize = 11.sp)
             }
         }
         if (sessions.isEmpty()) {
-            item { GlassCard { Text(mindText("لا توجد جلسات محفوظة بعد", "No saved sessions yet"), color = Muted, fontSize = 13.sp) } }
+            item { GlassCard { Text(mindString(english, "لا توجد جلسات محفوظة بعد", "No saved sessions yet"), color = Muted, fontSize = 13.sp) } }
         } else {
             items(sessions.sortedByDescending { it.endedAt }.take(50)) { session ->
                 GlassCard {
@@ -1069,13 +1070,13 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(session.type, fontWeight = FontWeight.Bold)
                             Text(java.text.SimpleDateFormat("dd/MM/yyyy · HH:mm", java.util.Locale("ar")).format(java.util.Date(session.startedAt)), color = Muted, fontSize = 11.sp)
-                            val distanceLabel = if (session.distanceMeters >= 1000f) mindText("%.2f كم", "%.2f km").format(session.distanceKm) else mindText("%d م", "%d m").format(session.distanceMeters.toInt())
-                            Text(mindText("${session.durationSeconds / 60L} دقيقة · $distanceLabel", "${session.durationSeconds / 60L} min · $distanceLabel"), color = Muted, fontSize = 12.sp)
+                            val distanceLabel = if (session.distanceMeters >= 1000f) mindString(english, "%.2f كم", "%.2f km").format(session.distanceKm) else mindString(english, "%d م", "%d m").format(session.distanceMeters.toInt())
+                            Text(mindString(english, "${session.durationSeconds / 60L} دقيقة · $distanceLabel", "${session.durationSeconds / 60L} min · $distanceLabel"), color = Muted, fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("GPS", color = Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             TextButton(onClick = { onDeleteSession(session) }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                                Text(mindText("حذف", "Delete"), color = Muted, fontSize = 11.sp)
+                                Text(mindString(english, "حذف", "Delete"), color = Muted, fontSize = 11.sp)
                             }
                         }
                     }
@@ -1084,14 +1085,14 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
         }
         item {
             GlassCard {
-                Text(mindText("التغذية", "Nutrition"), color = Gold, fontWeight = FontWeight.Bold)
-                Text(mindText("سجّل السعرات اليومية وتابع سجل التغذية", "Log your daily calories and track your nutrition"), color = Muted, fontSize = 12.sp)
+                Text(mindString(english, "التغذية", "Nutrition"), color = Gold, fontWeight = FontWeight.Bold)
+                Text(mindString(english, "سجّل السعرات اليومية وتابع سجل التغذية", "Log your daily calories and track your nutrition"), color = Muted, fontSize = 12.sp)
                 Button(onClick = onOpenFood, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
-                    Text(mindText("فتح التغذية", "Open nutrition"))
+                    Text(mindString(english, "فتح التغذية", "Open nutrition"))
                 }
             }
         }
-        item { Text(mindText("ملاحظة: قياس المسافة يحتاج رؤية واضحة للأقمار الصناعية. قد تتأخر القراءة داخل المباني، ولن تُحتسب المواقع غير الدقيقة.", "Note: Distance measurement requires a clear satellite signal. Readings may be delayed indoors, and inaccurate locations are ignored."), color = Muted, fontSize = 12.sp) }
+        item { Text(mindString(english, "ملاحظة: قياس المسافة يحتاج رؤية واضحة للأقمار الصناعية. قد تتأخر القراءة داخل المباني، ولن تُحتسب المواقع غير الدقيقة.", "Note: Distance measurement requires a clear satellite signal. Readings may be delayed indoors, and inaccurate locations are ignored."), color = Muted, fontSize = 12.sp) }
     }
 }
 
