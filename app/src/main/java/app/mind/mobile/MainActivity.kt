@@ -234,6 +234,17 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         journalEntries = saved.journalEntries
         loadedStorageKey = activeUid ?: "legacy"
         stateLoaded = true
+        if (!activeUid.isNullOrBlank() &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED)
+        ) {
+            val stepIntent = Intent(context, StepCounterService::class.java)
+                .putExtra(StepCounterService.EXTRA_UID, activeUid)
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(stepIntent)
+                else context.startService(stepIntent)
+            }.onFailure { Log.e("MIND", "Unable to start account-scoped step counter", it) }
+        }
     }
 
     LaunchedEffect(sensorRevision, stateLoaded) {
@@ -1329,7 +1340,7 @@ private fun SleepAlarmCard(userId: String?) {
                     text = { Text(mindText("بلا صوت (اهتزاز)", "Silent (vibration)")) },
                     onClick = {
                         soundMenuExpanded = false
-                        SleepAlarm.saveSound(context, "none")
+                        userId?.let { SleepAlarm.saveSound(context, it, "none") }
                         settings = settings.copy(sound = "none", soundUri = null)
                     }
                 )
