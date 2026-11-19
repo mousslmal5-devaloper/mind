@@ -46,7 +46,7 @@ class StepCounterService : Service(), SensorEventListener {
                 ?.takeIf { it.isEmailVerified }?.uid
         }.getOrNull()
         val uid = requestedUid ?: currentUid
-        if (uid.isNullOrBlank() || uid != currentUid || (ownerUid != null && ownerUid != uid)) {
+        if (uid.isNullOrBlank() || uid != currentUid) {
             stopSelf(startId)
             return START_NOT_STICKY
         }
