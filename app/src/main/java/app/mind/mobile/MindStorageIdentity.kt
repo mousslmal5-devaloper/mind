@@ -9,12 +9,15 @@ import java.security.MessageDigest
  * collisions caused by truncating or sanitizing arbitrary UID characters.
  */
 internal object MindStorageIdentity {
+    fun accountKey(uid: String): String {
+        require(uid.isNotBlank() && uid == uid.trim()) { "A non-blank canonical user ID is required" }
+        return MessageDigest.getInstance("SHA-256").digest(uid.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+    }
+
     fun dataStoreFileName(uid: String): String {
         require(uid.isNotBlank() && uid == uid.trim()) { "A non-blank canonical user ID is required" }
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(uid.toByteArray(Charsets.UTF_8))
-        val hex = digest.joinToString(separator = "") { byte -> "%02x".format(byte) }
-        return "mind_user_$hex.preferences_pb"
+        return "mind_user_${accountKey(uid)}.preferences_pb"
     }
 
     fun legacyImportDecision(
