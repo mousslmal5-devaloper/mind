@@ -65,6 +65,33 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
+            if (!createAccount) {
+                TextButton(
+                    onClick = {
+                        val instance = auth
+                        if (instance == null) {
+                            message = mindString(english, "خدمة الحساب غير متاحة حالياً.", "The account service is currently unavailable.")
+                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                            message = mindString(english, "أدخل بريدك الإلكتروني أولاً لإرسال رابط إعادة التعيين.", "Enter your email first to request a password reset.")
+                        } else {
+                            busy = true
+                            message = null
+                            instance.sendPasswordResetEmail(email).addOnCompleteListener { result ->
+                                busy = false
+                                message = if (result.isSuccessful) {
+                                    mindString(english, "إذا كان البريد مسجلاً، فستصلك رسالة لإعادة تعيين كلمة المرور.", "If the email is registered, a password reset message will be sent.")
+                                } else {
+                                    mindString(english, "تعذر إرسال رابط إعادة التعيين الآن. تحقق من الاتصال وحاول لاحقاً.", "Unable to send the reset link right now. Check your connection and try again.")
+                                }
+                            }
+                        }
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(mindString(english, "نسيت كلمة المرور؟", "Forgot password?"))
+                }
+            }
             message?.let { Text(it) }
             Button(
                 onClick = {
