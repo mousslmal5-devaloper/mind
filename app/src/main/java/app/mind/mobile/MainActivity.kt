@@ -169,7 +169,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var stateLoaded by rememberSaveable { mutableStateOf(false) }
     var uiLanguage by rememberSaveable { mutableStateOf("ar") }
     var uiAppearance by rememberSaveable { mutableStateOf("dark") }
-    var activeUid by rememberSaveable {
+    var activeUid by remember {
         mutableStateOf(runCatching {
             com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                 ?.takeIf { it.isEmailVerified }?.uid
