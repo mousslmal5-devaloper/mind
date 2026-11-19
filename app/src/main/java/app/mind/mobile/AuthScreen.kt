@@ -92,14 +92,14 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                     Text(mindString(english, "نسيت كلمة المرور؟", "Forgot password?"))
                 }
             }
-            auth.currentUser?.takeIf { !it.isEmailVerified }?.let { pendingUser ->
+            auth?.currentUser?.takeIf { !it.isEmailVerified }?.let { pendingUser ->
                 TextButton(
                     onClick = {
                         busy = true
                         message = null
                         pendingUser.reload().addOnCompleteListener { refresh ->
                             busy = false
-                            val refreshedUser = auth.currentUser
+                            val refreshedUser = auth?.currentUser
                             if (refresh.isSuccessful && refreshedUser?.isEmailVerified == true) {
                                 onSignedIn()
                             } else if (refresh.isSuccessful) {
