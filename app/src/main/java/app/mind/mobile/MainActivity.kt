@@ -175,9 +175,11 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                 ?.takeIf { it.isEmailVerified }?.uid
         }.getOrNull())
     }
+    var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
 
     LaunchedEffect(activeUid) {
         stateLoaded = false
+        loadedStorageKey = "loading"
         val saved = runCatching { loadMindSavedState(context, activeUid) }
             .onFailure { Log.e("MIND", "Unable to restore local app data", it) }
             .getOrDefault(MindSavedState())
@@ -218,6 +220,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         workoutSessions = saved.workoutSessions
         foodEntries = saved.foodEntries
         journalEntries = saved.journalEntries
+        loadedStorageKey = activeUid ?: "legacy"
         stateLoaded = true
     }
 
@@ -232,11 +235,11 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     }
 
     LaunchedEffect(
-        activeUid, stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
+        activeUid, loadedStorageKey, stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
         habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode, uiLanguage, uiAppearance,
         focusDurationMinutes, studySessions, workoutSessions, foodEntries, journalEntries
     ) {
-        if (stateLoaded) {
+        if (stateLoaded && loadedStorageKey == (activeUid ?: "legacy")) {
             runCatching {
                 saveMindSavedState(
                     context,
