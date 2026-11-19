@@ -1,5 +1,11 @@
 package app.mind.mobile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.GoogleAuthProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,6 +44,43 @@ fun AuthScreen(onSignedIn: () -> Unit) {
         }.getOrNull()
     }
     val configError = auth == null
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val instance = auth
+            val webClientId = runCatching { context.getString(R.string.default_web_client_id) }.getOrNull()
+            if (instance == null || webClientId.isNullOrBlank()) {
+                busy = false
+                message = mindString(english, "إعداد Google Sign-In غير مكتمل في Firebase.", "Google Sign-In is not fully configured in Firebase.")
+            } else {
+                runCatching {
+                    val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                        .getResult(ApiException::class.java)
+                    val idToken = account.idToken
+                    if (idToken.isNullOrBlank()) throw IllegalStateException("Google returned no ID token")
+                    val credential = GoogleAuthProvider.getCredential(idToken, null)
+                    instance.signInWithCredential(credential).addOnCompleteListener { task ->
+                        busy = false
+                        if (task.isSuccessful && task.result?.user?.isEmailVerified == true) {
+                            onSignedIn()
+                        } else {
+                            message = mindString(english, "تعذر تسجيل الدخول بحساب Google. حاول مجدداً.", "Google sign-in failed. Please try again.")
+                        }
+                    }
+                }.onFailure {
+                    busy = false
+                    message = when (it) {
+                        is ApiException -> mindString(english, "أُلغي تسجيل Google أو تعذر إكماله (رمز ${it.statusCode}).", "Google sign-in was cancelled or could not complete (code ${it.statusCode}).")
+                        else -> mindString(english, "تعذر بدء تسجيل Google. تحقق من إعداد OAuth وحاول مجدداً.", "Could not complete Google sign-in. Check OAuth configuration and try again.")
+                    }
+                }
+            }
+        } else {
+            busy = false
+            message = mindString(english, "تم إلغاء تسجيل Google.", "Google sign-in was cancelled.")
+        }
+    }
 
     Column(
         modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
@@ -48,6 +91,26 @@ fun AuthScreen(onSignedIn: () -> Unit) {
         if (configError) {
             Text(mindString(english, "لم يتم تهيئة Firebase لهذا التطبيق بعد. أضف google-services.json الخاص بالحزمة app.mind.mobile وفعّل Email/Password في Firebase Console.", "Firebase is not configured for this app yet. Add the google-services.json for package app.mind.mobile and enable Email/Password in Firebase Console."))
         } else {
+            Button(
+                onClick = {
+                    val webClientId = runCatching { context.getString(R.string.default_web_client_id) }.getOrNull()
+                    if (webClientId.isNullOrBlank()) {
+                        message = mindString(english, "إعداد Google OAuth غير موجود. تحقق من Firebase Console.", "Google OAuth configuration is missing. Check Firebase Console.")
+                    } else {
+                        busy = true
+                        message = null
+                        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                            .requestIdToken(webClientId)
+                            .requestEmail()
+                            .build()
+                        googleLauncher.launch(GoogleSignIn.getClient(context, options).signInIntent)
+                    }
+                },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (busy) mindString(english, "يرجى الانتظار...", "Please wait...") else mindString(english, "المتابعة باستخدام Google", "Continue with Google"))
+            }
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it.trim() },
