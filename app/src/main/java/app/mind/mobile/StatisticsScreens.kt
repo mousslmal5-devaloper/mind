@@ -56,6 +56,7 @@ private fun List<Float>.meanKnown(): Float { val v=filterNot { it.isNaN() }; ret
 
 @Composable
 fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,waterEntries:List<WaterEntry>,steps:Int,stepEntries:List<StepEntry>,habitHistory:List<HabitDayRecord>,studySessions:List<StudySession>,sleepSessions:List<SleepSession>,workoutSessions:List<WorkoutSession>) {
+    val english = LocalMindLanguage.current == "en"
     var period by rememberSaveable { mutableStateOf("week") }
     val days=remember(period) { sDays(if (period == "month") 30 else 7) }; val today=days.last()
     val start=remember { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0) }.timeInMillis }
@@ -82,37 +83,37 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
     val habitsHour=(0..23).map { Float.NaN }
     val caloriesWeek=stepsWeek.map { if(it.isNaN()) Float.NaN else it*.04f }
     val caloriesHour=stepsHour.map { if(it.isNaN()) Float.NaN else it*.04f }
-    val labels=days.map { runCatching { SimpleDateFormat(if(period=="month") "d" else "EEE",Locale("ar")).format(SimpleDateFormat("yyyy-MM-dd",Locale.US).parse(it)!!) }.getOrDefault("—") }
+    val labels=days.map { runCatching { SimpleDateFormat(if(period=="month") "d" else "EEE",if(english) Locale.US else Locale("ar")).format(SimpleDateFormat("yyyy-MM-dd",Locale.US).parse(it)!!) }.getOrDefault("—") }
     val hLabels=(0..23).map { if(it%6==0) "%02d".format(it) else "" }
     val rings=if(period=="day") listOf(
-        RMetric(steps.toFloat(),10000f,SG,steps.toString(),"الخطوات"),
-        RMetric(water.toFloat(),waterGoal.coerceAtLeast(1).toFloat(),SBlue,water.toString()+"/"+waterGoal,"الماء"),
-        RMetric(steps*.04f,400f,SOrange,(steps*.04f).roundToInt().toString(),"سعرات تقديرية"),
-        RMetric(habitPct,100f,SGreen,habitPct.roundToInt().toString()+"%","العادات"),
-        RMetric(studyHour.sum(),120f,SPurple,studyHour.sum().roundToInt().toString(),"دقائق التركيز"),
-        RMetric(sleepHour.sum(),8f,STeal,String.format(Locale.US,"%.1f",sleepHour.sum()),"النوم")
+        RMetric(steps.toFloat(),10000f,SG,steps.toString(),mindText("الخطوات", "Steps")),
+        RMetric(water.toFloat(),waterGoal.coerceAtLeast(1).toFloat(),SBlue,water.toString()+"/"+waterGoal,mindText("الماء", "Water")),
+        RMetric(steps*.04f,400f,SOrange,(steps*.04f).roundToInt().toString(),mindText("سعرات تقديرية", "Estimated calories")),
+        RMetric(habitPct,100f,SGreen,habitPct.roundToInt().toString()+"%",mindText("العادات", "Habits")),
+        RMetric(studyHour.sum(),120f,SPurple,studyHour.sum().roundToInt().toString(),mindText("دقائق التركيز", "Focus minutes")),
+        RMetric(sleepHour.sum(),8f,STeal,String.format(Locale.US,"%.1f",sleepHour.sum()),mindText("النوم", "Sleep"))
     ) else listOf(
-        RMetric(stepsWeek.sum(),10000f*days.size,SG,stepsWeek.sum().roundToInt().toString(),"الخطوات"),
-        RMetric(waterWeek.sum(),(waterGoal*days.size).coerceAtLeast(1).toFloat(),SBlue,waterWeek.sum().roundToInt().toString(),"الماء"),
-        RMetric(caloriesWeek.filterNot { it.isNaN() }.sum(),400f*days.size,SOrange,caloriesWeek.filterNot { it.isNaN() }.sum().roundToInt().toString(),"سعرات تقديرية"),
-        RMetric(habitsWeek.meanKnown(),100f,SGreen,habitsWeek.meanKnown().roundToInt().toString()+"%","متوسط العادات"),
-        RMetric(studyWeek.sum(),120f*days.size,SPurple,studyWeek.sum().roundToInt().toString(),"دقائق التركيز"),
-        RMetric(sleepWeek.meanKnown(),8f,STeal,String.format(Locale.US,"%.1f",sleepWeek.meanKnown()),"متوسط النوم")
+        RMetric(stepsWeek.sum(),10000f*days.size,SG,stepsWeek.sum().roundToInt().toString(),mindText("الخطوات", "Steps")),
+        RMetric(waterWeek.sum(),(waterGoal*days.size).coerceAtLeast(1).toFloat(),SBlue,waterWeek.sum().roundToInt().toString(),mindText("الماء", "Water")),
+        RMetric(caloriesWeek.filterNot { it.isNaN() }.sum(),400f*days.size,SOrange,caloriesWeek.filterNot { it.isNaN() }.sum().roundToInt().toString(),mindText("سعرات تقديرية", "Estimated calories")),
+        RMetric(habitsWeek.meanKnown(),100f,SGreen,habitsWeek.meanKnown().roundToInt().toString()+"%",mindText("متوسط العادات", "Average habits")),
+        RMetric(studyWeek.sum(),120f*days.size,SPurple,studyWeek.sum().roundToInt().toString(),mindText("دقائق التركيز", "Focus minutes")),
+        RMetric(sleepWeek.meanKnown(),8f,STeal,String.format(Locale.US,"%.1f",sleepWeek.meanKnown()),mindText("متوسط النوم", "Average sleep"))
     )
     val charts=if(period=="day") listOf(
-        CMetric("الخطوات","خطوة",SG,stepsHour,hLabels),CMetric("السعرات المحروقة","kcal تقديري",SOrange,caloriesHour,hLabels),
-        CMetric("إنجاز العادات","%",SGreen,habitsHour,hLabels),CMetric("النوم","ساعة",STeal,sleepHour,hLabels),
-        CMetric("دقائق التركيز","دقيقة",SPurple,studyHour,hLabels),CMetric("الماء","كوب",SBlue,waterHour,hLabels)
+        CMetric(mindText("الخطوات", "Steps"),mindText("خطوة", "steps"),SG,stepsHour,hLabels),CMetric(mindText("السعرات المحروقة", "Calories burned"),mindText("kcal تقديري", "estimated kcal"),SOrange,caloriesHour,hLabels),
+        CMetric(mindText("إنجاز العادات", "Habit completion"),"%",SGreen,habitsHour,hLabels),CMetric(mindText("النوم", "Sleep"),mindText("ساعة", "hours"),STeal,sleepHour,hLabels),
+        CMetric(mindText("دقائق التركيز", "Focus minutes"),mindText("دقيقة", "minutes"),SPurple,studyHour,hLabels),CMetric(mindText("الماء", "Water"),mindText("كوب", "cups"),SBlue,waterHour,hLabels)
     ) else listOf(
-        CMetric("الخطوات","خطوة",SG,stepsWeek,labels),CMetric("السعرات المحروقة","kcal تقديري",SOrange,caloriesWeek,labels),
-        CMetric("إنجاز العادات","%",SGreen,habitsWeek,labels),CMetric("النوم","ساعة",STeal,sleepWeek,labels),
-        CMetric("دقائق التركيز","دقيقة",SPurple,studyWeek,labels),CMetric("الماء","كوب",SBlue,waterWeek,labels)
+        CMetric(mindText("الخطوات", "Steps"),mindText("خطوة", "steps"),SG,stepsWeek,labels),CMetric(mindText("السعرات المحروقة", "Calories burned"),mindText("kcal تقديري", "estimated kcal"),SOrange,caloriesWeek,labels),
+        CMetric(mindText("إنجاز العادات", "Habit completion"),"%",SGreen,habitsWeek,labels),CMetric(mindText("النوم", "Sleep"),mindText("ساعة", "hours"),STeal,sleepWeek,labels),
+        CMetric(mindText("دقائق التركيز", "Focus minutes"),mindText("دقيقة", "minutes"),SPurple,studyWeek,labels),CMetric(mindText("الماء", "Water"),mindText("كوب", "cups"),SBlue,waterWeek,labels)
     )
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(18.dp,12.dp,18.dp,112.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        item { Text("الإحصائيات",fontSize=26.sp,fontWeight=FontWeight.ExtraBold);Text("تابع تقدمك واتجاهاتك بمرور الوقت",color=SM,fontSize=12.sp) }
+        item { Text(mindText("الإحصائيات", "Statistics"),fontSize=26.sp,fontWeight=FontWeight.ExtraBold);Text(mindText("تابع تقدمك واتجاهاتك بمرور الوقت", "Track your progress and trends over time"),color=SM,fontSize=12.sp) }
         item {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(16.dp)).padding(4.dp)) {
-                listOf("day" to "اليوم","week" to "7 أيام","month" to "30 يوماً").forEach { p ->
+                listOf("day" to mindText("اليوم", "Today"),"week" to mindText("7 أيام", "7 days"),"month" to mindText("30 يوماً", "30 days")).forEach { p ->
                     val chosen=period==p.first
                     Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if(chosen) SG else Color.Transparent).clickable { period=p.first }.padding(11.dp),contentAlignment=Alignment.Center) {
                         Text(p.second,color=if(chosen) Color(0xFF15130A) else SM,fontWeight=FontWeight.Bold,fontSize=13.sp)
@@ -121,7 +122,7 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
             }
         }
         item {
-            Text(when(period) { "day" -> "ملخص اليوم"; "month" -> "ملخص آخر 30 يوماً"; else -> "ملخص آخر 7 أيام" },fontSize=17.sp,fontWeight=FontWeight.Bold)
+            Text(when(period) { "day" -> mindText("ملخص اليوم", "Today's summary"); "month" -> mindText("ملخص آخر 30 يوماً", "Last 30 days summary"); else -> mindText("ملخص آخر 7 أيام", "Last 7 days summary") },fontSize=17.sp,fontWeight=FontWeight.Bold)
             BoxWithConstraints {
                 val columns=when { maxWidth>=900.dp -> 6; maxWidth>=560.dp -> 3; else -> 2 }
                 Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
@@ -133,22 +134,22 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
         }
         item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                Text("النشاط الرياضي المسجل",fontSize=15.sp,fontWeight=FontWeight.Bold)
+                Text(mindText("النشاط الرياضي المسجل", "Recorded workout activity"),fontSize=15.sp,fontWeight=FontWeight.Bold)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Column { Text("الجلسات",color=SM,fontSize=10.sp);Text(periodWorkouts.size.toString(),color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
-                    Column { Text("المسافة",color=SM,fontSize=10.sp);Text(if(workoutDistance>=1000f) String.format(Locale.US,"%.2f كم",workoutDistance/1000f) else String.format(Locale.US,"%.0f م",workoutDistance),color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
-                    Column { Text("المدة",color=SM,fontSize=10.sp);Text(workoutMinutes.toString()+" د",color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+                    Column { Text(mindText("الجلسات", "Sessions"),color=SM,fontSize=10.sp);Text(periodWorkouts.size.toString(),color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+                    Column { Text(mindText("المسافة", "Distance"),color=SM,fontSize=10.sp);Text(if(workoutDistance>=1000f) String.format(Locale.US,mindText("%.2f كم", "%.2f km"),workoutDistance/1000f) else String.format(Locale.US,mindText("%.0f م", "%.0f m"),workoutDistance),color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+                    Column { Text(mindText("المدة", "Duration"),color=SM,fontSize=10.sp);Text(workoutMinutes.toString()+mindText(" د", " min"),color=SG,fontSize=23.sp,fontWeight=FontWeight.Bold) }
                 }
-                if(periodWorkouts.isEmpty()) Text("لا توجد جلسات رياضية مسجلة في هذه الفترة.",color=SM,fontSize=11.sp)
+                if(periodWorkouts.isEmpty()) Text(mindText("لا توجد جلسات رياضية مسجلة في هذه الفترة.", "No workout sessions recorded during this period."),color=SM,fontSize=11.sp)
                 else periodWorkouts.sortedByDescending { it.endedAt }.take(3).forEach { session ->
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                         Text(session.type,color=Color.White,fontSize=12.sp)
-                        Text(if(session.distanceMeters>=1000f) String.format(Locale.US,"%.2f كم",session.distanceKm) else String.format(Locale.US,"%.0f م",session.distanceMeters),color=SM,fontSize=12.sp)
+                        Text(if(session.distanceMeters>=1000f) String.format(Locale.US,mindText("%.2f كم", "%.2f km"),session.distanceKm) else String.format(Locale.US,mindText("%.0f م", "%.0f m"),session.distanceMeters),color=SM,fontSize=12.sp)
                     }
                 }
             }
         }
-        item { Text("المنحنيات",fontSize=17.sp,fontWeight=FontWeight.Bold) }
+        item { Text(mindText("المنحنيات", "Trends"),fontSize=17.sp,fontWeight=FontWeight.Bold) }
         item {
             BoxWithConstraints {
                 val columns=if(maxWidth>=760.dp) 2 else 1
@@ -166,7 +167,7 @@ fun StatisticsScreen(habits:List<String>,habitMask:Int,water:Int,waterGoal:Int,w
             item { HabitWeekGrid(habits,habitMask,days,labels,habitHistory) }
             item { SleepWeekGrid(sleepSessions,days,labels) }
         }
-        item { Text("السعرات تقديرية من الخطوات. منحنى العادات يعرض الأيام المسجلة فقط، ولا تتوفر بيانات ساعة بساعة للعادات بعد.",color=SM,fontSize=10.sp) }
+        item { Text(mindText("السعرات تقديرية من الخطوات. منحنى العادات يعرض الأيام المسجلة فقط، ولا تتوفر بيانات ساعة بساعة للعادات بعد.", "Calories are estimated from steps. The habits chart shows recorded days only; hourly habit data is not available yet."),color=SM,fontSize=10.sp) }
     }
 }
 
@@ -180,7 +181,7 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
             Text(m.display,fontSize=11.sp,fontWeight=FontWeight.Bold)
         }
         Text(m.title,fontSize=10.sp,fontWeight=FontWeight.SemiBold,maxLines=1)
-        Text("هدف "+m.goal.roundToInt(),color=SM,fontSize=9.sp)
+        Text(mindText("هدف ", "Goal ")+m.goal.roundToInt(),color=SM,fontSize=9.sp)
     }
 }
 @Composable private fun ChartTile(c:CMetric,period:String,modifier:Modifier=Modifier) {
@@ -196,7 +197,7 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
             drawPath(path,c.color,style=Stroke(2.5.dp.toPx(),cap=StrokeCap.Round))
         }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){c.labels.forEachIndexed{i,s->if(s.isNotBlank()&&(period=="day"||(period=="month" && (i%5==0||i==c.labels.lastIndex))||(period=="week" && (i%2==0||i==c.labels.lastIndex))))Text(s,color=SM,fontSize=9.sp)}}
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){FootStat("المتوسط",String.format(Locale.US,"%.1f",avg));FootStat("الأعلى",String.format(Locale.US,"%.1f",best));FootStat("نقاط البيانات",known.size.toString()+"/"+c.values.size)}
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){FootStat(mindText("المتوسط", "Average"),String.format(Locale.US,"%.1f",avg));FootStat(mindText("الأعلى", "Best"),String.format(Locale.US,"%.1f",best));FootStat(mindText("نقاط البيانات", "Data points"),known.size.toString()+"/"+c.values.size)}
     }
 }
 @Composable private fun FootStat(a:String,b:String){Column(horizontalAlignment=Alignment.CenterHorizontally){Text(a,color=SM,fontSize=9.sp);Text(b,fontSize=11.sp,fontWeight=FontWeight.Bold)}}
@@ -204,8 +205,8 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
 @Composable private fun HabitWeekGrid(habits:List<String>,mask:Int,days:List<String>,labels:List<String>,history:List<HabitDayRecord>) {
     val records=history.associateBy { it.dateKey }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
-        Text("شبكة العادات",fontSize=15.sp,fontWeight=FontWeight.Bold)
-        if(habits.isEmpty()) Text("أضف عاداتك لعرض الشبكة",color=SM,fontSize=12.sp)
+        Text(mindText("شبكة العادات", "Habit grid"),fontSize=15.sp,fontWeight=FontWeight.Bold)
+        if(habits.isEmpty()) Text(mindText("أضف عاداتك لعرض الشبكة", "Add habits to display the grid"),color=SM,fontSize=12.sp)
         habits.forEachIndexed { i,name -> Row(verticalAlignment=Alignment.CenterVertically) {
             Text(name,Modifier.weight(1.2f),fontSize=10.sp,maxLines=1)
             days.forEachIndexed { d,key ->
@@ -216,13 +217,13 @@ private data class CMetric(val title:String,val unit:String,val color:Color,val 
             }
         } }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){labels.forEach{Text(it.take(2),color=SM,fontSize=9.sp)}}
-        Text("الأيام غير المسجلة تبقى فارغة ولا تُحسب كإخفاق.",color=SM,fontSize=10.sp)
+        Text(mindText("الأيام غير المسجلة تبقى فارغة ولا تُحسب كإخفاق.", "Unrecorded days remain blank and are not counted as failures."),color=SM,fontSize=10.sp)
     }
 }
 @Composable private fun SleepWeekGrid(sessions:List<SleepSession>,days:List<String>,labels:List<String>) {
     val values=days.map{k->sessions.filter{sDate(it.endedAt)==k}.sumOf{it.durationMinutes}/60f}
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp)).background(SF).border(1.dp,SB,RoundedCornerShape(21.dp)).padding(15.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
-        Text("شبكة النوم الأسبوعية",fontSize=15.sp,fontWeight=FontWeight.Bold)
+        Text(mindText("شبكة النوم الأسبوعية", "Weekly sleep grid"),fontSize=15.sp,fontWeight=FontWeight.Bold)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalAlignment=Alignment.Bottom) {
             values.forEachIndexed{i,v->Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)){
                 Text(if(v>0)String.format(Locale.US,"%.1f",v) else "—",fontSize=9.sp,color=STeal)
@@ -241,21 +242,21 @@ private data class AwardItem(val label:String,val icon:androidx.compose.ui.graph
 @Composable
 fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>,sleepSessions:List<SleepSession>,studyMinutes:Int,studySessions:List<StudySession>,steps:Int,noteText:String,workoutSessions:List<WorkoutSession>,foodEntries:List<FoodEntry>,journalEntries:List<JournalEntry>) {
     val groups=listOf(
-        AwardGroup("hab","عادات مضافة",Icons.Rounded.CheckCircle,listOf(1,3,5,10,20,50)),
-        AwardGroup("str","يوماً متتالياً",Icons.Rounded.EmojiEvents,listOf(3,7,14,30,60,100,200,365)),
-        AwardGroup("chk","تسجيل عادة",Icons.Rounded.CheckCircle,listOf(1,10,50,100,250,500,1000,5000)),
-        AwardGroup("prf","أيام مثالية",Icons.Rounded.EmojiEvents,listOf(1,3,7,14,30,100)),
-        AwardGroup("wat","كوب ماء",Icons.Rounded.WaterDrop,listOf(8,50,100,250,500,1000,5000)),
-        AwardGroup("slp","ليلة نوم مسجلة",Icons.Rounded.Bedtime,listOf(1,7,14,30,100,365)),
-        AwardGroup("slh","ساعة نوم",Icons.Rounded.Bedtime,listOf(10,50,100,500,1000)),
-        AwardGroup("stm","دقيقة دراسة",Icons.Rounded.MenuBook,listOf(30,60,300,600,3000,6000,30000)),
-        AwardGroup("sts","جلسة دراسة",Icons.Rounded.MenuBook,listOf(1,10,25,50,100,500)),
-        AwardGroup("stp","خطوة",Icons.Rounded.DirectionsRun,listOf(1000,5000,10000,50000,100000,500000,1000000)),
-        AwardGroup("fit","تمرين مسجل",Icons.Rounded.DirectionsRun,listOf(1,10,25,50,100)),
-        AwardGroup("fod","وجبة مسجلة",Icons.Rounded.EmojiEvents,listOf(1,10,50,100,500,1000)),
-        AwardGroup("jr","يومية مكتوبة",Icons.Rounded.Star,listOf(1,7,30,100,365)),
-        AwardGroup("nt","مذكرة",Icons.Rounded.Star,listOf(1,10,25,50,100)),
-        AwardGroup("day","يوم استخدام",Icons.Rounded.Star,listOf(1,7,30,100,365,730))
+        AwardGroup("hab",mindText("عادات مضافة", "Habits added"),Icons.Rounded.CheckCircle,listOf(1,3,5,10,20,50)),
+        AwardGroup("str",mindText("يوماً متتالياً", "consecutive days"),Icons.Rounded.EmojiEvents,listOf(3,7,14,30,60,100,200,365)),
+        AwardGroup("chk",mindText("تسجيل عادة", "Habit check-ins"),Icons.Rounded.CheckCircle,listOf(1,10,50,100,250,500,1000,5000)),
+        AwardGroup("prf",mindText("أيام مثالية", "Perfect days"),Icons.Rounded.EmojiEvents,listOf(1,3,7,14,30,100)),
+        AwardGroup("wat",mindText("كوب ماء", "Water cups"),Icons.Rounded.WaterDrop,listOf(8,50,100,250,500,1000,5000)),
+        AwardGroup("slp",mindText("ليلة نوم مسجلة", "Nights recorded"),Icons.Rounded.Bedtime,listOf(1,7,14,30,100,365)),
+        AwardGroup("slh",mindText("ساعة نوم", "Hours slept"),Icons.Rounded.Bedtime,listOf(10,50,100,500,1000)),
+        AwardGroup("stm",mindText("دقيقة دراسة", "Study minutes"),Icons.Rounded.MenuBook,listOf(30,60,300,600,3000,6000,30000)),
+        AwardGroup("sts",mindText("جلسة دراسة", "Study sessions"),Icons.Rounded.MenuBook,listOf(1,10,25,50,100,500)),
+        AwardGroup("stp",mindText("خطوة", "steps"),Icons.Rounded.DirectionsRun,listOf(1000,5000,10000,50000,100000,500000,1000000)),
+        AwardGroup("fit",mindText("تمرين مسجل", "Workouts recorded"),Icons.Rounded.DirectionsRun,listOf(1,10,25,50,100)),
+        AwardGroup("fod",mindText("وجبة مسجلة", "Meals recorded"),Icons.Rounded.EmojiEvents,listOf(1,10,50,100,500,1000)),
+        AwardGroup("jr",mindText("يومية مكتوبة", "Journal entries"),Icons.Rounded.Star,listOf(1,7,30,100,365)),
+        AwardGroup("nt",mindText("مذكرة", "Note"),Icons.Rounded.Star,listOf(1,10,25,50,100)),
+        AwardGroup("day",mindText("يوم استخدام", "Days active"),Icons.Rounded.Star,listOf(1,7,30,100,365,730))
     )
     val done=Integer.bitCount(habitMask).coerceAtMost(habits.size)
     val active=buildSet {
@@ -277,7 +278,7 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
         "jr" to journalEntries.size,"nt" to if(noteText.isBlank())0 else 1,"day" to active
     )
     val baseOpened=groups.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}
-    val allGroups=groups+AwardGroup("ach","إنجازاً مفتوحاً",Icons.Rounded.Star,listOf(5,10,25,50,75,90,93))
+    val allGroups=groups+AwardGroup("ach",mindText("إنجازاً مفتوحاً", "Achievements unlocked"),Icons.Rounded.Star,listOf(5,10,25,50,75,90,93))
     val items=allGroups.flatMap { g ->
         val current=if(g.key=="ach")baseOpened else values[g.key]?:0
         g.levels.map { AwardItem(g.label,g.icon,it,current) }
@@ -287,8 +288,8 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
 
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(18.dp,12.dp,18.dp,112.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
         item {
-            Text("الإنجازات",fontSize=26.sp,fontWeight=FontWeight.ExtraBold)
-            Text("كل خطوة تُحسب. واصل بناء تقدمك.",color=SM,fontSize=12.sp)
+            Text(mindText("الإنجازات", "Achievements"),fontSize=26.sp,fontWeight=FontWeight.ExtraBold)
+            Text(mindText("كل خطوة تُحسب. واصل بناء تقدمك.", "Every step counts. Keep building your progress."),color=SM,fontSize=12.sp)
         }
         item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(SF)
@@ -296,7 +297,7 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
                 Row(verticalAlignment=Alignment.CenterVertically) {
                     Icon(Icons.Rounded.EmojiEvents,null,tint=SG,modifier=Modifier.size(24.dp))
                     Spacer(Modifier.width(9.dp))
-                    Text("الإنجازات المفتوحة",Modifier.weight(1f),fontWeight=FontWeight.Bold)
+                    Text(mindText("الإنجازات المفتوحة", "Unlocked achievements"),Modifier.weight(1f),fontWeight=FontWeight.Bold)
                     Text(unlocked.toString()+" / "+total,color=SG,fontWeight=FontWeight.ExtraBold,fontSize=18.sp)
                 }
                 LinearProgressIndicator(progress={unlocked.toFloat()/total},modifier=Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
