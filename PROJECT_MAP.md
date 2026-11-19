@@ -3,7 +3,7 @@
 Last reviewed: 2026-11-19
 Active repository: `mousslmal5-devaloper/mind`
 Active branch: `feature/native-rebuild`
-Current baseline commit: `bdd826f11826eba922560463dd0d5754b3d3b1df`
+Current baseline commit: `4a8c237f1582b74b4b011ee660148f807734eb5d`
 Pull request: #1 (open draft; do not merge without explicit user approval).
 
 ## [TECH_STACK]
@@ -61,6 +61,7 @@ Verified in source at baseline commit `9d5276254b921e1f5231ffd40bcbc4581977aee7`
 - Sleep start/wake sessions, history and wake alarm with silent/vibration, ringtone and selected audio file options.
 - Notes currently persist a single plain-text field; this is not parity with the reference's full notes workspace.
 - Firebase email/password sign-in/create-account and email verification. Google/Facebook/Apple sign-in and Firestore sync/restore are not verified as implemented.
+- Settings milestone in progress: persisted Arabic/English app locale selection through AndroidX AppCompat, and persistent dark/light/system appearance selection with dark and light palettes. English translation of all feature-screen copy is still pending; this is not yet full bilingual parity.
 - DataStore currently persists the implemented records listed above. Room is only a declared dependency; do not claim Room-backed storage.
 - Unit tests exist for step-counter math, workout-distance math, and nutrition/journal input/date-total rules. CI run 44471696348 attempt 1 passed Unit tests; Assemble debug APK initially failed because Maven Central returned HTTP 403 while resolving dependencies. Assemble retry (attempt 2) is still in progress; no new APK artifact is verified for this commit yet. No connected/emulator test job is currently present.
 
@@ -87,7 +88,7 @@ Every item below remains open until implemented from the exact HTML behavior, pe
 - Notes workspace parity: search, folders, sorting, pinning, lock/PIN, trash/restore/permanent delete, rich text/checklists, image/audio attachments, recording/playback, drawing, export/share.
 - Dashboard/widgets parity: source clock, water, Pomodoro, ambient audio and feature summary widgets as in-app UI; do not invent launcher widgets.
 - Ambient audio parity: source sound choices, custom audio, looping and volume controls.
-- Settings parity: language, appearance, goals, notification/sound options, permissions, PIN/timeout, orientation, backup/import/export, reset, about/privacy/help/share.
+- Settings parity: language and appearance controls are implemented in the current branch; complete translation of every feature screen, goals, notification/sound options, permissions, PIN/timeout, orientation, backup/import/export, reset, about/privacy/help/share remain pending.
 
 ### P2 — Account, sync and release verification
 - Verify correct Firebase Android app configuration for `app.mind.mobile`, OAuth fingerprints and provider setup before enabling providers.
