@@ -1170,7 +1170,29 @@ private fun SleepScreen(hours: Float, sessions: List<SleepSession>, activeStarte
 private fun SleepAlarmCard() {
     val context = LocalContext.current
     var settings by remember { mutableStateOf(SleepAlarm.read(context)) }
+    var soundMenuExpanded by remember { mutableStateOf(false) }
     val timeLabel = "%02d:%02d".format(settings.hour, settings.minute)
+    val soundPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }.onFailure { Log.w("MIND", "Could not persist alarm audio permission", it) }
+            SleepAlarm.saveSound(context, "file", uri.toString())
+            settings = settings.copy(sound = "file", soundUri = uri.toString())
+        } else if (settings.sound == "file" && settings.soundUri == null) {
+            SleepAlarm.saveSound(context, "none")
+            settings = settings.copy(sound = "none")
+        }
+    }
+    val soundLabel = when (settings.sound) {
+        "beep" -> "نغمة هادئة"
+        "file" -> "من ملفاتي"
+        else -> "بلا صوت (اهتزاز)"
+    }
     GlassCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -1201,7 +1223,40 @@ private fun SleepAlarmCard() {
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("ضبط الوقت · $timeLabel", color = Gold) }
-        Text("يعمل يومياً ويُعاد ضبطه بعد إعادة تشغيل الهاتف. يعتمد التنبيه على إشعارات الجهاز.", color = Muted, fontSize = 10.sp)
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { soundMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("صوت المنبّه · $soundLabel", color = Gold)
+            }
+            DropdownMenu(expanded = soundMenuExpanded, onDismissRequest = { soundMenuExpanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("بلا صوت (اهتزاز)") },
+                    onClick = {
+                        soundMenuExpanded = false
+                        SleepAlarm.saveSound(context, "none")
+                        settings = settings.copy(sound = "none", soundUri = null)
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("نغمة هادئة") },
+                    onClick = {
+                        soundMenuExpanded = false
+                        SleepAlarm.saveSound(context, "beep")
+                        settings = settings.copy(sound = "beep", soundUri = null)
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("اختيار ملف صوتي") },
+                    onClick = {
+                        soundMenuExpanded = false
+                        soundPicker.launch(arrayOf("audio/*"))
+                    }
+                )
+            }
+        }
+        if (settings.sound == "file") {
+            Text(settings.soundUri?.substringAfterLast("/")?.take(36) ?: "ملف صوتي محدد", color = Muted, fontSize = 10.sp)
+        }
+        Text("يعمل يومياً ويُعاد ضبطه بعد إعادة تشغيل الهاتف أو تغيير الوقت والمنطقة الزمنية.", color = Muted, fontSize = 10.sp)
     }
 }
 
