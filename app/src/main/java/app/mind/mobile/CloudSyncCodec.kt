@@ -82,7 +82,8 @@ internal object CloudSyncCodec {
             waterEntries = snapshot.waterEntries,
             steps = todaySteps,
             stepEntries = snapshot.stepEntries,
-            stepSensorInitialized = currentLocal.stepSensorInitialized || snapshot.stepEntries.isNotEmpty(),
+            // Sensor initialization is device-local and must never be inferred from cloud history.
+            stepSensorInitialized = currentLocal.stepSensorInitialized,
             studyMinutes = totalStudyMinutes,
             sleepHours = latestSleepHours,
             sleepSessions = snapshot.sleepSessions,
