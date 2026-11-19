@@ -2,6 +2,7 @@ package app.mind.mobile
 
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -35,8 +36,10 @@ internal class FirestoreMindSyncRepository(
     suspend fun readSnapshotInfo(uid: String): CloudSnapshotInfo? {
         requireVerifiedOwner(uid)
         val metadata = metadataRef(uid).get().awaitTask()
-        if (!metadata.exists()) return null
+        return if (metadata.exists()) parseSnapshotInfo(metadata) else null
+    }
 
+    private fun parseSnapshotInfo(metadata: DocumentSnapshot): CloudSnapshotInfo {
         val generation = metadata.getString(FIELD_ACTIVE_GENERATION)
             ?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Cloud metadata has no active generation")
@@ -134,8 +137,10 @@ internal class FirestoreMindSyncRepository(
 
     suspend fun restoreSnapshot(uid: String): RestoreResult {
         requireVerifiedOwner(uid)
-        val info = readSnapshotInfo(uid) ?: return RestoreResult.NoCloudSnapshot
+        // Read the active pointer and its manifest fields from one consistent document snapshot.
         val metadata = metadataRef(uid).get().awaitTask()
+        if (!metadata.exists()) return RestoreResult.NoCloudSnapshot
+        val info = parseSnapshotInfo(metadata)
         val expectedCount = metadata.getLong(FIELD_CHUNK_COUNT)?.toInt()
             ?: throw IllegalStateException("Cloud chunk manifest is missing")
         val expectedDigest = metadata.getString(FIELD_SHA256)
@@ -148,11 +153,17 @@ internal class FirestoreMindSyncRepository(
         require(generation.getLong(FIELD_REVISION) == info.revision) {
             "Cloud generation revision does not match metadata"
         }
+        require(generation.getLong(FIELD_SCHEMA_VERSION)?.toInt() == info.schemaVersion) {
+            "Cloud generation schema does not match metadata"
+        }
         require(generation.getLong(FIELD_CHUNK_COUNT)?.toInt() == expectedCount) {
             "Cloud generation manifest does not match metadata"
         }
         require(generation.getString(FIELD_SHA256) == expectedDigest) {
             "Cloud generation checksum does not match metadata"
+        }
+        require(generation.getString(FIELD_ENCODING) == ENCODING_BASE64_UTF8) {
+            "Cloud generation encoding is not supported"
         }
 
         val documents = generationRef.collection(COLLECTION_CHUNKS)
