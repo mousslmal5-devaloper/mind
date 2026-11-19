@@ -3,7 +3,7 @@
 Last reviewed: 2026-11-19
 Active repository: `mousslmal5-devaloper/mind`
 Active branch: `feature/native-rebuild`
-Current baseline commit: `9d5276254b921e1f5231ffd40bcbc4581977aee7`
+Current baseline commit: `bdd826f11826eba922560463dd0d5754b3d3b1df`
 Pull request: #1 (open draft; do not merge without explicit user approval).
 
 ## [TECH_STACK]
@@ -51,6 +51,9 @@ Pull request: #1 (open draft; do not merge without explicit user approval).
 ## [CURRENT_IMPLEMENTATION]
 Verified in source at baseline commit `9d5276254b921e1f5231ffd40bcbc4581977aee7`:
 - Native Compose shell, animated ambient background, glass-card primitives and responsive bottom/side navigation.
+- Nutrition screen: calorie input, daily total, seven-day bars, last-30 history and delete; entries persisted locally in DataStore.
+- Journal screen: text entry, dated history and delete; entries persisted locally in DataStore. The reference defines the journal module but does not expose a navigation entry point in its visible navigation, so surfacing it remains unresolved rather than inventing a new dashboard shortcut.
+- Food and journal records now feed their corresponding achievement thresholds and active-day calculations.
 - Dashboard, habit check-in/create flow (basic list model), water intake and goal, statistics, awards.
 - Pomodoro focus/break timer, session tracking and native mind maps.
 - Real Android `TYPE_STEP_COUNTER` integration; no manual step increment/decrement control.
@@ -59,7 +62,7 @@ Verified in source at baseline commit `9d5276254b921e1f5231ffd40bcbc4581977aee7`
 - Notes currently persist a single plain-text field; this is not parity with the reference's full notes workspace.
 - Firebase email/password sign-in/create-account and email verification. Google/Facebook/Apple sign-in and Firestore sync/restore are not verified as implemented.
 - DataStore currently persists the implemented records listed above. Room is only a declared dependency; do not claim Room-backed storage.
-- Unit tests exist for step-counter math and workout-distance math. CI run 44468643583 on this baseline passed Unit tests and Assemble debug APK; artifact MIND-debug-apk is 20,666,947 bytes. No connected/emulator test job is currently present.
+- Unit tests exist for step-counter math, workout-distance math, and nutrition/journal input/date-total rules. CI run 44471696348 attempt 1 passed Unit tests; Assemble debug APK initially failed because Maven Central returned HTTP 403 while resolving dependencies. Assemble retry (attempt 2) is still in progress; no new APK artifact is verified for this commit yet. No connected/emulator test job is currently present.
 
 ## [ORPHANS & PENDING]
 Every item below remains open until implemented from the exact HTML behavior, persisted, and covered by a verification goal.
@@ -75,8 +78,9 @@ Every item below remains open until implemented from the exact HTML behavior, pe
 - Complete achievements catalog and thresholds, including food, journal, notes, active days and unlocked-achievement progression.
 
 ### P1 — Missing reference modules and full feature depth
-- Nutrition/food logging with source-matching calorie entry, daily records, edit/delete, history and achievement/statistics integration.
-- Journal entries with source-matching text entry, dated history, edit/delete and achievement/statistics integration.
+- Verify nutrition and journal screen acceptance against the reference on device, including date rollover, persistence after process death and delete behavior.
+- Decide how to expose the source-defined journal route: `mind-web (1)(5).html` declares the module metadata and generic module renderer, but no visible navigation action reaches it. Do not invent a shortcut without resolving this source ambiguity.
+- Include food/journal entries in backup export/import and restore validation.
 - Study parity: focus lock behavior, complete charts and source-equivalent summaries; retain native mind-map editing, backgrounds, node operations, zoom/pan and export/share parity.
 - Fitness parity: profile body metrics/step goal, hourly step distribution, source calculations and complete workout summary/history/share behavior. Distinguish sensor-measured values from estimates.
 - Sleep parity: exact session validation, comparisons, 7-day/30-day summaries, grids, history and wake alarm behavior.
@@ -92,6 +96,7 @@ Every item below remains open until implemented from the exact HTML behavior, pe
 - Add instrumentation/UI tests and API 23–30 smoke tests; current CI has unit tests + assemble only.
 - Confirm final font/icon/audio assets and licensing/source files before bundling.
 - Review dependency/toolchain upgrades separately, preserving minSdk 23 and targetSdk 30.
+- Resolve existing build warnings before release: deprecated AutoMirrored icon usages in StatisticsScreens.kt, deprecated Notification.Builder(Context) usage in StepCounterService.kt, and Node 20 warnings from the current GitHub Actions v4 steps.
 
 ## [MILESTONES — VERIFIABLE GOALS]
 1. **M0 — Baseline and source lock:** exact reference identified; baseline CI, artifact and branch verified; PROJECT_MAP synchronized. Goal: source and implementation inventory has no stale reference or unsupported completion claim.
