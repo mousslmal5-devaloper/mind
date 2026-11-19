@@ -239,7 +239,7 @@ private data class AwardGroup(val key:String,val label:String,val icon:androidx.
 private data class AwardItem(val label:String,val icon:androidx.compose.ui.graphics.vector.ImageVector,val level:Int,val current:Int)
 
 @Composable
-fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>,sleepSessions:List<SleepSession>,studyMinutes:Int,studySessions:List<StudySession>,steps:Int,noteText:String,workoutSessions:List<WorkoutSession>) {
+fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>,sleepSessions:List<SleepSession>,studyMinutes:Int,studySessions:List<StudySession>,steps:Int,noteText:String,workoutSessions:List<WorkoutSession>,foodEntries:List<FoodEntry>,journalEntries:List<JournalEntry>) {
     val groups=listOf(
         AwardGroup("hab","عادات مضافة",Icons.Rounded.CheckCircle,listOf(1,3,5,10,20,50)),
         AwardGroup("str","يوماً متتالياً",Icons.Rounded.EmojiEvents,listOf(3,7,14,30,60,100,200,365)),
@@ -263,6 +263,8 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
         studySessions.forEach{add(sDate(it.completedAt))}
         sleepSessions.forEach{add(sDate(it.endedAt))}
         workoutSessions.forEach{add(sDate(it.endedAt))}
+        foodEntries.forEach{add(sDate(it.recordedAt))}
+        journalEntries.forEach{add(sDate(it.recordedAt))}
         if(done>0||steps>0)add(sDate(System.currentTimeMillis()))
     }.size
     val values=mapOf(
@@ -271,8 +273,8 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
         "wat" to waterEntries.size,"slp" to sleepSessions.size,
         "slh" to sleepSessions.sumOf{it.durationMinutes}/60,
         "stm" to maxOf(studyMinutes,studySessions.sumOf{it.durationMinutes}),
-        "sts" to studySessions.size,"stp" to steps,"fit" to workoutSessions.size,"fod" to 0,
-        "jr" to 0,"nt" to if(noteText.isBlank())0 else 1,"day" to active
+        "sts" to studySessions.size,"stp" to steps,"fit" to workoutSessions.size,"fod" to foodEntries.size,
+        "jr" to journalEntries.size,"nt" to if(noteText.isBlank())0 else 1,"day" to active
     )
     val baseOpened=groups.sumOf{g->g.levels.count{(values[g.key]?:0)>=it}}
     val allGroups=groups+AwardGroup("ach","إنجازاً مفتوحاً",Icons.Rounded.Star,listOf(5,10,25,50,75,90,93))
@@ -313,9 +315,6 @@ fun AwardsScreen(habits:List<String>,habitMask:Int,waterEntries:List<WaterEntry>
                     }
                 }
             }
-        }
-        item {
-            Text("الوجبات واليوميات غير مفعّلة بعد؛ لذلك لا تُمنح إنجازات لها دون بيانات فعلية.",color=SM,fontSize=10.sp)
         }
     }
 }
