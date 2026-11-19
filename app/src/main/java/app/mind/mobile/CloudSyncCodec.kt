@@ -53,6 +53,51 @@ internal object CloudSyncCodec {
         )
     }
 
+    /** Converts a validated cloud snapshot into local state while retaining device-only settings and timers. */
+    fun toLocal(snapshot: MindCloudSnapshot, currentLocal: MindSavedState): MindSavedState {
+        validate(snapshot)
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date(System.currentTimeMillis()))
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayWater = snapshot.waterEntries.count { it.recordedAt >= todayStart }.coerceIn(0, 40)
+        val todaySteps = snapshot.stepEntries
+            .filter { it.recordedAt >= todayStart }
+            .sumOf { it.delta.coerceAtLeast(0) }
+            .coerceIn(0, 100_000)
+        val todayHabits = snapshot.habitHistory.lastOrNull { it.dateKey == today }?.completedMask ?: 0
+        val totalStudyMinutes = snapshot.studySessions.sumOf { it.durationMinutes.coerceAtLeast(0) }
+            .coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        val latestSleepHours = snapshot.sleepSessions.maxByOrNull { it.endedAt }
+            ?.let { ((it.endedAt - it.startedAt).coerceAtLeast(0L) / 3_600_000f).coerceIn(0f, 16f) }
+            ?: currentLocal.sleepHours
+
+        return currentLocal.copy(
+            water = todayWater,
+            waterGoal = snapshot.waterGoal,
+            waterEntries = snapshot.waterEntries,
+            steps = todaySteps,
+            stepEntries = snapshot.stepEntries,
+            stepSensorInitialized = currentLocal.stepSensorInitialized || snapshot.stepEntries.isNotEmpty(),
+            studyMinutes = totalStudyMinutes,
+            sleepHours = latestSleepHours,
+            sleepSessions = snapshot.sleepSessions,
+            habitMask = todayHabits,
+            habitNames = snapshot.habitNames,
+            noteText = snapshot.noteText,
+            focusMode = snapshot.focusMode,
+            focusDurationMinutes = snapshot.focusDurationMinutes,
+            studySessions = snapshot.studySessions,
+            workoutSessions = snapshot.workoutSessions,
+            foodEntries = snapshot.foodEntries,
+            journalEntries = snapshot.journalEntries
+        )
+    }
+
     fun encode(snapshot: MindCloudSnapshot): String {
         validate(snapshot)
         return gson.toJson(snapshot)
