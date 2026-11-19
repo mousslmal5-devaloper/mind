@@ -211,6 +211,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                 legacyImportMessage = null
                 cloudSyncMessage = null
                 cloudSyncBusy = false
+                pendingCloudRestore = null
                 page = if (verifiedUid == null) "auth" else "home"
             }
         }
