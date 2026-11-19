@@ -130,6 +130,18 @@ class CloudSyncCodecTest {
     }
 
     @Test
+    fun encodeRejectsSnapshotsLargerThanRestoreLimit() {
+        val oversizedState = MindSavedState(
+            journalEntries = listOf(JournalEntry(1L, "x".repeat(16 * 1024 * 1024 + 1)))
+        )
+        val oversizedSnapshot = CloudSyncCodec.fromLocal(oversizedState, revision = 1L)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            CloudSyncCodec.encode(oversizedSnapshot)
+        }
+    }
+
+    @Test
     fun rejectsUnsupportedSchemaAndNegativeRevision() {
         val valid = CloudSyncCodec.fromLocal(MindSavedState(), 0L)
         assertThrows(IllegalArgumentException::class.java) {
