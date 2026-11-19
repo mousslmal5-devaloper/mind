@@ -188,6 +188,11 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         }.getOrNull())
     }
 
+    var legacyImportBusy by remember { mutableStateOf(false) }
+    var legacyImportMessage by remember { mutableStateOf<String?>(null) }
+    var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
+    var accountReloadVersion by remember { mutableIntStateOf(0) }
+
     // Keep the UI gate synchronized with Firebase even when sign-out or account
     // changes happen outside this screen (for example, from another auth flow).
     val firebaseAuth = remember { com.google.firebase.auth.FirebaseAuth.getInstance() }
@@ -206,10 +211,6 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         firebaseAuth.addAuthStateListener(authListener)
         onDispose { firebaseAuth.removeAuthStateListener(authListener) }
     }
-    var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
-    var accountReloadVersion by remember { mutableIntStateOf(0) }
-    var legacyImportBusy by remember { mutableStateOf(false) }
-    var legacyImportMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(activeUid, accountReloadVersion) {
         stateLoaded = false
