@@ -82,6 +82,7 @@ class CloudSyncCodecTest {
         assertEquals("light", restored.uiAppearance)
         assertEquals(123, restored.focusSeconds)
         assertEquals(deviceState.activeSleepStartedAt, restored.activeSleepStartedAt)
+        assertEquals(false, restored.stepSensorInitialized)
     }
 
     @Test
