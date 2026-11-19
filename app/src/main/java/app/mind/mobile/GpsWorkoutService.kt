@@ -45,6 +45,19 @@ class GpsWorkoutService : Service(), LocationListener {
         when (intent?.action) {
             ACTION_STOP -> stopWorkout()
             ACTION_STATUS -> {
+                val currentUid = runCatching {
+                    com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        ?.takeIf { it.isEmailVerified }?.uid
+                }.getOrNull()
+                if (active && ownerUid != currentUid) {
+                    active = false
+                    runCatching { locationManager.removeUpdates(this) }
+                    clearPersistedWorkout()
+                    stopForegroundCompat()
+                    publish(false, "تم إيقاف جلسة GPS بسبب تغيّر الحساب")
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
                 publish(active, if (active) "جلسة $workoutType قيد التسجيل" else "لا توجد جلسة نشطة")
                 if (!active) stopSelf(startId)
             }
