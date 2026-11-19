@@ -103,6 +103,8 @@ private object MindPreferenceKeys {
 
 suspend fun loadMindSavedState(context: Context, uid: String? = null): MindSavedState {
     val preferences = mindDataStore(context, uid).data.first()
+    // Language and appearance are device preferences, intentionally shared across accounts.
+    val uiPreferences = if (uid.isNullOrBlank()) preferences else context.mindDataStore.data.first()
     return MindSavedState(
         water = preferences[MindPreferenceKeys.water] ?: 0,
         waterGoal = (preferences[MindPreferenceKeys.waterGoal] ?: 8).coerceIn(1, 20),
@@ -127,8 +129,8 @@ suspend fun loadMindSavedState(context: Context, uid: String? = null): MindSaved
         workoutSessions = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]"),
         foodEntries = decodeFoodEntries(preferences[MindPreferenceKeys.foodEntries] ?: "[]"),
         journalEntries = decodeJournalEntries(preferences[MindPreferenceKeys.journalEntries] ?: "[]"),
-        uiLanguage = preferences[MindPreferenceKeys.uiLanguage]?.takeIf { it == "ar" || it == "en" } ?: "ar",
-        uiAppearance = preferences[MindPreferenceKeys.uiAppearance]?.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
+        uiLanguage = uiPreferences[MindPreferenceKeys.uiLanguage]?.takeIf { it == "ar" || it == "en" } ?: "ar",
+        uiAppearance = uiPreferences[MindPreferenceKeys.uiAppearance]?.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
     )
 }
 
@@ -156,8 +158,6 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState, uid: Str
         preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions(state.workoutSessions)
         preferences[MindPreferenceKeys.foodEntries] = encodeFoodEntries(state.foodEntries)
         preferences[MindPreferenceKeys.journalEntries] = encodeJournalEntries(state.journalEntries)
-        preferences[MindPreferenceKeys.uiLanguage] = if (state.uiLanguage == "en") "en" else "ar"
-        preferences[MindPreferenceKeys.uiAppearance] = state.uiAppearance.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
     }
 }
 
