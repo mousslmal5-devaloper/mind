@@ -8,6 +8,23 @@ const { doc, getDoc, setDoc } = require("firebase/firestore");
 
 let testEnv;
 
+const checksum = "0".repeat(64);
+const validMetadata = {
+  activeGeneration: "generation-1",
+  revision: 1,
+  schemaVersion: 1,
+  chunkCount: 1,
+  sha256: checksum,
+  updatedAt: new Date()
+};
+const validManifest = {
+  schemaVersion: 1,
+  revision: 1,
+  chunkCount: 1,
+  sha256: checksum,
+  encoding: "base64-utf8"
+};
+
 before(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: "demo-mind-rules",
@@ -25,24 +42,29 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
 });
 
-describe("MIND Firestore sync ownership rules", () => {
-  it("allows an authenticated user to read and write their sync metadata", async () => {
+describe("MIND Firestore sync ownership and schema rules", () => {
+  it("allows the owner to read and publish valid sync metadata", async () => {
     const db = testEnv.authenticatedContext("user-a").firestore();
     const reference = doc(db, "users/user-a/sync/meta");
 
-    await assertSucceeds(setDoc(reference, { schemaVersion: 1, revision: 1 }));
+    await assertSucceeds(setDoc(reference, validMetadata));
     await assertSucceeds(getDoc(reference));
   });
 
-  it("allows the owner to write generation chunks", async () => {
+  it("allows the owner to publish a valid generation manifest and chunk", async () => {
     const db = testEnv.authenticatedContext("user-a").firestore();
-    const reference = doc(
+    const manifest = doc(
       db,
-      "users/user-a/sync/meta/snapshots/generation-1/chunks/water_0"
+      "users/user-a/sync/meta/snapshots/generation-1"
+    );
+    const chunk = doc(
+      db,
+      "users/user-a/sync/meta/snapshots/generation-1/chunks/0"
     );
 
-    await assertSucceeds(setDoc(reference, { records: ["sample"] }));
-    await assertSucceeds(getDoc(reference));
+    await assertSucceeds(setDoc(manifest, validManifest));
+    await assertSucceeds(setDoc(chunk, { index: 0, payload: "eyJ2ZXJzaW9uIjoxfQ==" }));
+    await assertSucceeds(getDoc(chunk));
   });
 
   it("denies unauthenticated reads and writes", async () => {
@@ -50,7 +72,7 @@ describe("MIND Firestore sync ownership rules", () => {
     const reference = doc(db, "users/user-a/sync/meta");
 
     await assertFails(getDoc(reference));
-    await assertFails(setDoc(reference, { revision: 1 }));
+    await assertFails(setDoc(reference, validMetadata));
   });
 
   it("denies another account from reading or writing sync metadata", async () => {
@@ -59,18 +81,46 @@ describe("MIND Firestore sync ownership rules", () => {
     const ownerReference = doc(ownerDb, "users/user-a/sync/meta");
     const otherReference = doc(otherDb, "users/user-a/sync/meta");
 
-    await assertSucceeds(setDoc(ownerReference, { revision: 1 }));
+    await assertSucceeds(setDoc(ownerReference, validMetadata));
     await assertFails(getDoc(otherReference));
-    await assertFails(setDoc(otherReference, { revision: 2 }));
+    await assertFails(setDoc(otherReference, validMetadata));
   });
 
   it("denies another account from writing nested generation chunks", async () => {
     const db = testEnv.authenticatedContext("user-b").firestore();
     const reference = doc(
       db,
-      "users/user-a/sync/meta/snapshots/generation-1/chunks/water_0"
+      "users/user-a/sync/meta/snapshots/generation-1/chunks/0"
     );
 
-    await assertFails(setDoc(reference, { records: ["stolen"] }));
+    await assertFails(setDoc(reference, { index: 0, payload: "stolen" }));
+  });
+
+  it("rejects malformed metadata and unsupported schema versions", async () => {
+    const db = testEnv.authenticatedContext("user-a").firestore();
+    const metadata = doc(db, "users/user-a/sync/meta");
+
+    await assertFails(setDoc(metadata, { ...validMetadata, revision: -1 }));
+    await assertFails(setDoc(metadata, { ...validMetadata, schemaVersion: 99 }));
+    await assertFails(setDoc(metadata, { ...validMetadata, sha256: "not-a-checksum" }));
+    await assertFails(setDoc(metadata, { ...validMetadata, unexpected: true }));
+  });
+
+  it("rejects oversized or malformed chunk documents", async () => {
+    const db = testEnv.authenticatedContext("user-a").firestore();
+    const oversized = doc(
+      db,
+      "users/user-a/sync/meta/snapshots/generation-1/chunks/0"
+    );
+    const malformed = doc(
+      db,
+      "users/user-a/sync/meta/snapshots/generation-1/chunks/1"
+    );
+
+    await assertFails(setDoc(oversized, {
+      index: 0,
+      payload: "x".repeat(184321)
+    }));
+    await assertFails(setDoc(malformed, { index: -1, payload: "" }));
   });
 });
