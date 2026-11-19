@@ -10,9 +10,35 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import java.util.concurrent.ConcurrentHashMap
 
 private val Context.mindDataStore by preferencesDataStore(name = "mind_local_data")
+
+/** One DataStore instance per Firebase UID; the legacy store remains untouched for explicit import. */
+private object MindUserDataStores {
+    private val stores = ConcurrentHashMap<String, DataStore<Preferences>>()
+
+    fun get(context: Context, uid: String): DataStore<Preferences> {
+        val fileName = MindStorageIdentity.dataStoreFileName(uid)
+        return stores.getOrPut(fileName) {
+            PreferenceDataStoreFactory.create(
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                produceFile = { context.applicationContext.preferencesDataStoreFile(fileName.removeSuffix(".preferences_pb")) }
+            )
+        }
+    }
+}
+
+private fun mindDataStore(context: Context, uid: String?): DataStore<Preferences> =
+    if (uid.isNullOrBlank()) context.mindDataStore else MindUserDataStores.get(context.applicationContext, uid)
 
 data class StudySession(val completedAt: Long, val durationMinutes: Int)
 data class WaterEntry(val recordedAt: Long)
@@ -75,8 +101,8 @@ private object MindPreferenceKeys {
     val uiAppearance = stringPreferencesKey("ui_appearance")
 }
 
-suspend fun loadMindSavedState(context: Context): MindSavedState {
-    val preferences = context.mindDataStore.data.first()
+suspend fun loadMindSavedState(context: Context, uid: String? = null): MindSavedState {
+    val preferences = mindDataStore(context, uid).data.first()
     return MindSavedState(
         water = preferences[MindPreferenceKeys.water] ?: 0,
         waterGoal = (preferences[MindPreferenceKeys.waterGoal] ?: 8).coerceIn(1, 20),
@@ -106,8 +132,8 @@ suspend fun loadMindSavedState(context: Context): MindSavedState {
     )
 }
 
-suspend fun saveMindSavedState(context: Context, state: MindSavedState) {
-    context.mindDataStore.edit { preferences ->
+suspend fun saveMindSavedState(context: Context, state: MindSavedState, uid: String? = null) {
+    mindDataStore(context, uid).edit { preferences ->
         preferences[MindPreferenceKeys.water] = state.water.coerceIn(0, 40)
         preferences[MindPreferenceKeys.waterGoal] = state.waterGoal.coerceIn(1, 20)
         preferences[MindPreferenceKeys.steps] = state.steps.coerceIn(0, 100_000)
@@ -260,8 +286,8 @@ private fun decodeSleepSessions(raw: String): List<SleepSession> = runCatching {
         }
     }.takeLast(2000)
 }.getOrDefault(emptyList())
-suspend fun appendWorkoutSession(context: Context, session: WorkoutSession) {
-    context.applicationContext.mindDataStore.edit { preferences ->
+suspend fun appendWorkoutSession(context: Context, session: WorkoutSession, uid: String? = null) {
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
         val existing = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]")
         preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions((existing.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000))
     }
