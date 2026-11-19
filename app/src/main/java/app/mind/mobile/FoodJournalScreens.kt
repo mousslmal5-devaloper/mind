@@ -57,10 +57,10 @@ fun FoodScreen(
     var caloriesText by rememberSaveable { mutableStateOf("") }
     val today = remember { featureDateKey(System.currentTimeMillis()) }
     val todayEntries = entries.filter { featureDateKey(it.recordedAt) == today }
-    val totalToday = todayEntries.sumOf { it.calories }
+    val totalToday = foodCaloriesForDate(entries, today)
     val weekKeys = remember { lastSevenDayKeys() }
     val weekValues = weekKeys.map { key ->
-        entries.filter { featureDateKey(it.recordedAt) == key }.sumOf { it.calories }.toFloat()
+        foodCaloriesForDate(entries, key).toFloat()
     }
     val weekMax = (weekValues.maxOrNull() ?: 0f).coerceAtLeast(1f)
 
@@ -143,13 +143,13 @@ fun FoodScreen(
                 )
                 Button(
                     onClick = {
-                        val value = caloriesText.toDoubleOrNull()
-                        if (value != null && value.isFinite() && value > 0.0) {
+                        val value = parseFoodCalories(caloriesText)
+                        if (value != null) {
                             onAdd(value)
                             caloriesText = ""
                         }
                     },
-                    enabled = caloriesText.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true,
+                    enabled = parseFoodCalories(caloriesText) != null,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = FGold, contentColor = Color(0xFF15130A))
                 ) {
@@ -216,8 +216,8 @@ fun JournalScreen(
                 )
                 Button(
                     onClick = {
-                        val value = text.trim()
-                        if (value.isNotEmpty()) {
+                        val value = normalizeJournalEntry(text)
+                        if (value != null) {
                             onAdd(value)
                             text = ""
                         }
