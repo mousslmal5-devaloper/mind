@@ -44,3 +44,17 @@ jobs:
           name: MIND-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+  firestore-rules:
+    name: Firestore security rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install rules test dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run Firestore emulator security tests
+        run: npx firebase emulators:exec --only firestore --project demo-mind-rules "npm run test:rules"
