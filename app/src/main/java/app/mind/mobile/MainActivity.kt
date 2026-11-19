@@ -193,6 +193,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var cloudSyncBusy by remember { mutableStateOf(false) }
     var cloudSyncMessage by remember { mutableStateOf<String?>(null) }
     var pendingCloudRestore by remember { mutableStateOf<MindCloudSnapshot?>(null) }
+    var pendingCloudRestoreInfo by remember { mutableStateOf<FirestoreMindSyncRepository.CloudSnapshotInfo?>(null) }
     var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
     var accountReloadVersion by remember { mutableIntStateOf(0) }
 
@@ -212,6 +213,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                 cloudSyncMessage = null
                 cloudSyncBusy = false
                 pendingCloudRestore = null
+                pendingCloudRestoreInfo = null
                 page = if (verifiedUid == null) "auth" else "home"
             }
         }
@@ -564,6 +566,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                             cloudSyncBusy = true
                                             cloudSyncMessage = null
                                             pendingCloudRestore = null
+                                            pendingCloudRestoreInfo = null
                                             appScope.launch {
                                                 val result = runCatching {
                                                     val repository = FirestoreMindSyncRepository(
@@ -579,6 +582,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                                                 mindString(uiLanguage == "en", "لا توجد نسخة سحابية لهذا الحساب بعد.", "No cloud backup exists for this account yet.")
                                                             is FirestoreMindSyncRepository.RestoreResult.Restored -> {
                                                                 pendingCloudRestore = restore.snapshot
+                                                                pendingCloudRestoreInfo = restore.info
                                                                 mindString(uiLanguage == "en", "تم العثور على النسخة السحابية · الإصدار ${restore.info.revision}. راجع التأكيد قبل الاستعادة.", "Cloud backup found · revision ${restore.info.revision}. Review the confirmation before restoring.")
                                                             }
                                                         }
@@ -592,17 +596,31 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                             }
                                         }
                                     },
-                                    onCancelCloudRestore = { pendingCloudRestore = null },
+                                    onCancelCloudRestore = {
+                                        pendingCloudRestore = null
+                                        pendingCloudRestoreInfo = null
+                                    },
                                     onConfirmCloudRestore = {
                                         val uid = activeUid
                                         val snapshot = pendingCloudRestore
-                                        if (!uid.isNullOrBlank() && snapshot != null && stateLoaded && !cloudSyncBusy) {
+                                        val previewInfo = pendingCloudRestoreInfo
+                                        if (!uid.isNullOrBlank() && snapshot != null && previewInfo != null && stateLoaded && !cloudSyncBusy) {
                                             cloudSyncBusy = true
                                             appScope.launch {
                                                 val result = runCatching {
+                                                    val repository = FirestoreMindSyncRepository(
+                                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                                        com.google.firebase.auth.FirebaseAuth.getInstance()
+                                                    )
+                                                    // Revalidate the exact generation shown in the confirmation dialog.
+                                                    // Another device may publish a newer backup while the dialog is open.
+                                                    val latest = repository.restoreSnapshot(uid)
+                                                    check(latest is FirestoreMindSyncRepository.RestoreResult.Restored && latest.info == previewInfo) {
+                                                        "Cloud backup changed after preview; check it again."
+                                                    }
                                                     val localBeforeRestore = loadMindSavedState(context, uid)
                                                     val backupFile = createMindRestoreBackup(context, uid, localBeforeRestore)
-                                                    val restored = CloudSyncCodec.toLocal(snapshot, localBeforeRestore)
+                                                    val restored = CloudSyncCodec.toLocal(latest.snapshot, localBeforeRestore)
                                                     saveMindSavedState(context, restored, uid)
                                                     restored to backupFile
                                                 }
@@ -630,6 +648,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                                         foodEntries = restored.foodEntries
                                                         journalEntries = restored.journalEntries
                                                         pendingCloudRestore = null
+                                                        pendingCloudRestoreInfo = null
                                                         cloudSyncMessage = mindString(
                                                             uiLanguage == "en",
                                                             "تمت الاستعادة. حُفظت نسخة محلية سابقة في ${backupFile.name}.",
@@ -640,8 +659,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                                         Log.e("MIND", "Cloud restore failed", error)
                                                         cloudSyncMessage = mindString(
                                                             uiLanguage == "en",
-                                                            "فشلت الاستعادة؛ لم يتم استبدال البيانات المحلية.",
-                                                            "Restore failed; local data was not replaced."
+                                                            if (error.message?.contains("Cloud backup changed") == true) "تغيرت النسخة السحابية بعد المعاينة؛ تحقق منها مجدداً قبل الاستعادة." else "فشلت الاستعادة؛ لم يتم استبدال البيانات المحلية.",
+                                                            if (error.message?.contains("Cloud backup changed") == true) "The cloud backup changed after preview. Check it again before restoring." else "Restore failed; local data was not replaced."
                                                         )
                                                     }
                                                 )
