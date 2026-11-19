@@ -2,7 +2,6 @@ package app.mind.mobile
 
 import com.google.gson.Gson
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 
 /**
@@ -78,7 +77,7 @@ internal object CloudSyncCodec {
         var current = JsonArray()
         records.forEach { record ->
             val candidate = JsonArray().apply {
-                current.forEach(::add)
+                current.forEach { add(it) }
                 add(record)
             }
             if (utf8Size(candidate) > maxBytes) {
@@ -116,7 +115,7 @@ internal object CloudSyncCodec {
         require(snapshot.journalEntries.size <= 20_000) { "Too many journal records" }
     }
 
-    private fun utf8Size(element: JsonElement): Int =
+    private fun utf8Size(element: com.google.gson.JsonElement): Int =
         element.toString().toByteArray(Charsets.UTF_8).size
 
     private const val DEFAULT_CHUNK_BYTES = 256 * 1024
