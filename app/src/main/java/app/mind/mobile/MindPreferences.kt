@@ -240,7 +240,7 @@ suspend fun importLegacyMindData(context: Context, uid: String): LegacyMindImpor
         val safeState = legacyState.copy(
             activeSleepStartedAt = 0L,
             steps = 0,
-            stepSensorInitialized = false
+            stepSensorInitialized = legacyState.stepEntries.isNotEmpty()
         )
         saveMindSavedState(appContext, safeState, uid)
         legacyStore.edit { preferences ->
