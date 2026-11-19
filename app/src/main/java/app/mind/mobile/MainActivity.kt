@@ -192,6 +192,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var legacyImportMessage by remember { mutableStateOf<String?>(null) }
     var cloudSyncBusy by remember { mutableStateOf(false) }
     var cloudSyncMessage by remember { mutableStateOf<String?>(null) }
+    var pendingCloudRestore by remember { mutableStateOf<MindCloudSnapshot?>(null) }
     var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
     var accountReloadVersion by remember { mutableIntStateOf(0) }
 
@@ -516,6 +517,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     importMessage = legacyImportMessage,
                                     cloudSyncBusy = cloudSyncBusy,
                                     cloudSyncMessage = cloudSyncMessage,
+                                    pendingRestoreRevision = pendingCloudRestore?.revision,
                                     onUploadCloud = {
                                         val uid = activeUid
                                         if (!uid.isNullOrBlank() && stateLoaded && !cloudSyncBusy) {
@@ -549,6 +551,97 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                                     { error ->
                                                         Log.e("MIND", "Cloud backup failed", error)
                                                         mindString(uiLanguage == "en", "تعذر رفع النسخة السحابية. تحقق من الاتصال ثم حاول مجدداً.", "Cloud backup failed. Check your connection and try again.")
+                                                    }
+                                                )
+                                                cloudSyncBusy = false
+                                            }
+                                        }
+                                    },
+                                    onCheckCloudRestore = {
+                                        val uid = activeUid
+                                        if (!uid.isNullOrBlank() && stateLoaded && !cloudSyncBusy) {
+                                            cloudSyncBusy = true
+                                            cloudSyncMessage = null
+                                            pendingCloudRestore = null
+                                            appScope.launch {
+                                                val result = runCatching {
+                                                    val repository = FirestoreMindSyncRepository(
+                                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                                        com.google.firebase.auth.FirebaseAuth.getInstance()
+                                                    )
+                                                    repository.restoreSnapshot(uid)
+                                                }
+                                                cloudSyncMessage = result.fold(
+                                                    { restore ->
+                                                        when (restore) {
+                                                            FirestoreMindSyncRepository.RestoreResult.NoCloudSnapshot ->
+                                                                mindString(uiLanguage == "en", "لا توجد نسخة سحابية لهذا الحساب بعد.", "No cloud backup exists for this account yet.")
+                                                            is FirestoreMindSyncRepository.RestoreResult.Restored -> {
+                                                                pendingCloudRestore = restore.snapshot
+                                                                mindString(uiLanguage == "en", "تم العثور على النسخة السحابية · الإصدار ${restore.info.revision}. راجع التأكيد قبل الاستعادة.", "Cloud backup found · revision ${restore.info.revision}. Review the confirmation before restoring.")
+                                                            }
+                                                        }
+                                                    },
+                                                    { error ->
+                                                        Log.e("MIND", "Cloud restore preview failed", error)
+                                                        mindString(uiLanguage == "en", "تعذر قراءة النسخة السحابية والتحقق منها.", "Unable to read and validate the cloud backup.")
+                                                    }
+                                                )
+                                                cloudSyncBusy = false
+                                            }
+                                        }
+                                    },
+                                    onCancelCloudRestore = { pendingCloudRestore = null },
+                                    onConfirmCloudRestore = {
+                                        val uid = activeUid
+                                        val snapshot = pendingCloudRestore
+                                        if (!uid.isNullOrBlank() && snapshot != null && stateLoaded && !cloudSyncBusy) {
+                                            cloudSyncBusy = true
+                                            appScope.launch {
+                                                val result = runCatching {
+                                                    val localBeforeRestore = loadMindSavedState(context, uid)
+                                                    val backupFile = createMindRestoreBackup(context, uid, localBeforeRestore)
+                                                    val restored = CloudSyncCodec.toLocal(snapshot, localBeforeRestore)
+                                                    saveMindSavedState(context, restored, uid)
+                                                    restored to backupFile
+                                                }
+                                                result.fold(
+                                                    { (restored, backupFile) ->
+                                                        water = restored.water
+                                                        waterGoal = restored.waterGoal
+                                                        waterEntries = restored.waterEntries
+                                                        steps = restored.steps
+                                                        stepEntries = restored.stepEntries
+                                                        habitHistory = restored.habitHistory
+                                                        habitDateKey = mindDateKey(System.currentTimeMillis())
+                                                        habitMask = restored.habitMask
+                                                        studyMinutes = restored.studyMinutes
+                                                        sleepHours = restored.sleepHours
+                                                        sleepSessions = restored.sleepSessions
+                                                        activeSleepStartedAt = restored.activeSleepStartedAt
+                                                        habitNames = restored.habitNames
+                                                        noteText = restored.noteText
+                                                        focusSeconds = restored.focusSeconds
+                                                        focusMode = restored.focusMode
+                                                        focusDurationMinutes = restored.focusDurationMinutes
+                                                        studySessions = restored.studySessions
+                                                        workoutSessions = restored.workoutSessions
+                                                        foodEntries = restored.foodEntries
+                                                        journalEntries = restored.journalEntries
+                                                        pendingCloudRestore = null
+                                                        cloudSyncMessage = mindString(
+                                                            uiLanguage == "en",
+                                                            "تمت الاستعادة. حُفظت نسخة محلية سابقة في ${backupFile.name}.",
+                                                            "Restore complete. Previous local data was backed up as ${backupFile.name}."
+                                                        )
+                                                    },
+                                                    { error ->
+                                                        Log.e("MIND", "Cloud restore failed", error)
+                                                        cloudSyncMessage = mindString(
+                                                            uiLanguage == "en",
+                                                            "فشلت الاستعادة؛ لم يتم استبدال البيانات المحلية.",
+                                                            "Restore failed; local data was not replaced."
+                                                        )
                                                     }
                                                 )
                                                 cloudSyncBusy = false
@@ -1508,7 +1601,11 @@ private fun SettingsScreen(
     importMessage: String?,
     cloudSyncBusy: Boolean,
     cloudSyncMessage: String?,
+    pendingRestoreRevision: Long?,
     onUploadCloud: () -> Unit,
+    onCheckCloudRestore: () -> Unit,
+    onCancelCloudRestore: () -> Unit,
+    onConfirmCloudRestore: () -> Unit,
     onImportLegacy: () -> Unit,
     onLanguage: (String) -> Unit,
     onAppearance: (String) -> Unit,
@@ -1555,6 +1652,31 @@ private fun SettingsScreen(
                 Button(onClick = onUploadCloud, enabled = !cloudSyncBusy, modifier = Modifier.fillMaxWidth()) {
                     if (cloudSyncBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     else Text(if (english) "Back up to cloud now" else "إنشاء نسخة احتياطية سحابية الآن")
+                }
+                OutlinedButton(onClick = onCheckCloudRestore, enabled = !cloudSyncBusy, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (english) "Check cloud backup" else "التحقق من النسخة السحابية")
+                }
+                if (pendingRestoreRevision != null) {
+                    AlertDialog(
+                        onDismissRequest = onCancelCloudRestore,
+                        title = { Text(if (english) "Restore cloud backup?" else "استعادة النسخة السحابية؟") },
+                        text = {
+                            Text(
+                                if (english) "This will replace this account's synced data with cloud revision $pendingRestoreRevision. A private local backup will be saved first. Device language, appearance and active timers are preserved."
+                                else "سيتم استبدال البيانات المتزامنة لهذا الحساب بالنسخة السحابية رقم $pendingRestoreRevision. سنحفظ نسخة محلية خاصة أولاً، مع الحفاظ على لغة الجهاز ومظهره والمؤقتات النشطة."
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = onConfirmCloudRestore, enabled = !cloudSyncBusy) {
+                                Text(if (english) "Back up and restore" else "احفظ واستعد")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = onCancelCloudRestore) {
+                                Text(if (english) "Cancel" else "إلغاء")
+                            }
+                        }
+                    )
                 }
             }
             GlassCard {
