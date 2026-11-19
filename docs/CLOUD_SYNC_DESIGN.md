@@ -4,7 +4,7 @@ Status: partially implemented. The app has explicit manual cloud backup and conf
 
 ## Current verified baseline
 
-- Authentication uses Firebase Email/Password in `AuthScreen.kt`.
+- Authentication code includes Firebase Email/Password and Google Sign-In credential exchange in `AuthScreen.kt`; neither provider's complete flow has yet been verified on a physical device in this project.
 - The app currently stores its complete working state locally in Preferences DataStore (`mind_local_data`).
 - `MainActivity` restores the local state on startup and writes it back after state changes.
 - `FirestoreMindSyncRepository` currently uploads versioned snapshots and restores the active generation after explicit user action. Settings exposes manual backup, check, and confirm-restore actions.
@@ -45,12 +45,14 @@ Write all chunks for a new generation first. Verify every write, then publish th
 
 ## First-link and restore policy
 
-When a verified account first connects:
+When a verified account first connects, the intended product behavior is:
 - If no cloud snapshot exists and local data exists, offer a clear upload choice.
-- If cloud data exists and local data is non-empty, present explicit choices: merge compatible histories, restore cloud data, or keep this device's data. Do not choose destructive replacement automatically.
+- If cloud data exists and local data is non-empty, eventually present explicit choices: merge compatible histories, restore cloud data, or keep this device's data. Do not choose destructive replacement automatically.
 - If local data is empty and a cloud snapshot exists, restore only after validating the manifest and all chunks.
 - Validate schema version and record bounds before writing restored data into DataStore.
 - Preserve a local backup/export path before any destructive restore or replacement.
+
+Current implementation gap: Settings currently exposes manual upload and an explicit check/confirm-restore flow, but it does not yet implement the full first-link decision screen or history merge. The restore path writes a private local backup first. Treat this as a guarded manual backup/restore feature, not a complete multi-device sync experience.
 
 ## Conflict handling
 
@@ -86,4 +88,4 @@ The current root-only rule is insufficient for the proposed nested documents. Be
 5. Add durable WorkManager retry and sync status/error UI.
 6. Run unit tests, assembleDebug, and connected device tests where supported before claiming sync is operational.
 
-Cloud backup and restore are implemented as explicit manual operations, but they must not be described as fully verified cross-device synchronization until actual Firebase upload/restore, concurrent-device conflict, interrupted upload, and API 23 device tests have passed. Automatic offline retry and generation garbage collection remain unimplemented.
+Manual cloud backup and user-confirmed restore are implemented in code. Google Sign-In credential exchange is also implemented in code. These flows must not be described as production-verified until actual Firebase account sign-in, upload/restore, concurrent-device conflict, interrupted upload, and API 23 device tests have passed. The first-link merge/keep-local decision UI, automatic offline retry, and generation garbage collection remain unimplemented.
