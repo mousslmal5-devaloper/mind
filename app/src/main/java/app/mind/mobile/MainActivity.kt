@@ -153,6 +153,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var focusDurationMinutes by rememberSaveable { mutableIntStateOf(25) }
     var studySessions by remember { mutableStateOf<List<StudySession>>(emptyList()) }
     var workoutSessions by remember { mutableStateOf<List<WorkoutSession>>(emptyList()) }
+    var foodEntries by remember { mutableStateOf<List<FoodEntry>>(emptyList()) }
+    var journalEntries by remember { mutableStateOf<List<JournalEntry>>(emptyList()) }
     val context = LocalContext.current
     val appScope = rememberCoroutineScope()
     var stateLoaded by rememberSaveable { mutableStateOf(false) }
@@ -191,6 +193,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         focusDurationMinutes = saved.focusDurationMinutes
         studySessions = saved.studySessions
         workoutSessions = saved.workoutSessions
+        foodEntries = saved.foodEntries
+        journalEntries = saved.journalEntries
         stateLoaded = true
     }
 
@@ -207,7 +211,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     LaunchedEffect(
         stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
         habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode,
-        focusDurationMinutes, studySessions, workoutSessions
+        focusDurationMinutes, studySessions, workoutSessions, foodEntries, journalEntries
     ) {
         if (stateLoaded) {
             runCatching {
@@ -232,7 +236,9 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                         focusMode = focusMode,
                         focusDurationMinutes = focusDurationMinutes,
                         studySessions = studySessions,
-                        workoutSessions = workoutSessions
+                        workoutSessions = workoutSessions,
+                        foodEntries = foodEntries,
+                        journalEntries = journalEntries
                     )
                 )
             }.onFailure { Log.e("MIND", "Unable to persist local app data", it) }
@@ -366,7 +372,17 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
                                 )
                                 "mindmap" -> MindMapScreen()
-                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, onSessionCompleted = { session ->
+                                "food" -> FoodScreen(
+                                    entries = foodEntries,
+                                    onAdd = { calories -> foodEntries = (foodEntries + FoodEntry(System.currentTimeMillis(), calories)).takeLast(20000) },
+                                    onDelete = { entry -> foodEntries = foodEntries.filterNot { it.recordedAt == entry.recordedAt } }
+                                )
+                                "journal" -> JournalScreen(
+                                    entries = journalEntries,
+                                    onAdd = { text -> journalEntries = (journalEntries + JournalEntry(System.currentTimeMillis(), text)).takeLast(20000) },
+                                    onDelete = { entry -> journalEntries = journalEntries.filterNot { it.recordedAt == entry.recordedAt } }
+                                )
+                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, onOpenFood = { page = "food" }, onSessionCompleted = { session ->
                                     workoutSessions = (workoutSessions.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000)
                                 }, onDeleteSession = { session ->
                                     workoutSessions = workoutSessions.filterNot { it.startedAt == session.startedAt }
@@ -1318,6 +1334,8 @@ private fun pageTitle(page: String): String = when (page) {
     "water" -> "الماء"
     "study" -> "الدراسة والتركيز"
     "fitness" -> "الجري واللياقة"
+    "food" -> "التغذية"
+    "journal" -> "اليوميات"
     "sleep" -> "النوم"
     "notes" -> "الملاحظات"
     "settings" -> "الإعدادات"
