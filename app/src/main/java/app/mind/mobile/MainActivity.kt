@@ -989,7 +989,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
             gpsMessage = mindString(english, "جارٍ الحصول على إشارة GPS", "Getting GPS signal")
         } else gpsMessage = mindString(english, "يلزم السماح بالوصول إلى الموقع لقياس المسافة", "Location access is required to measure distance")
     }
-    DisposableEffect(context) {
+    DisposableEffect(context, userId) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 if (intent?.action != GpsWorkoutService.ACTION_UPDATE) return
@@ -1052,7 +1052,7 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
                         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                         } else {
-                            val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType)
+                            val intent = Intent(context, GpsWorkoutService::class.java).setAction(GpsWorkoutService.ACTION_START).putExtra(GpsWorkoutService.EXTRA_TYPE, workoutType).putExtra(GpsWorkoutService.EXTRA_UID, userId)
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
                             tracking = true
                             gpsMessage = mindString(english, "جارٍ الحصول على إشارة GPS", "Getting GPS signal")
