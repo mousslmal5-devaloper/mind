@@ -92,6 +92,29 @@ fun AuthScreen(onSignedIn: () -> Unit) {
                     Text(mindString(english, "نسيت كلمة المرور؟", "Forgot password?"))
                 }
             }
+            auth.currentUser?.takeIf { !it.isEmailVerified }?.let { pendingUser ->
+                TextButton(
+                    onClick = {
+                        busy = true
+                        message = null
+                        pendingUser.reload().addOnCompleteListener { refresh ->
+                            busy = false
+                            val refreshedUser = auth.currentUser
+                            if (refresh.isSuccessful && refreshedUser?.isEmailVerified == true) {
+                                onSignedIn()
+                            } else if (refresh.isSuccessful) {
+                                message = mindString(english, "لم يتم تأكيد البريد بعد. افتح رسالة Firebase ثم اضغط تحقق مرة أخرى.", "Email is not verified yet. Open the Firebase email, then check again.")
+                            } else {
+                                message = mindString(english, "تعذر التحقق من حالة البريد. تحقق من الاتصال وحاول مجدداً.", "Could not refresh verification status. Check your connection and try again.")
+                            }
+                        }
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(mindString(english, "تحققت من بريدي الإلكتروني", "I've verified my email"))
+                }
+            }
             message?.let { Text(it) }
             Button(
                 onClick = {
