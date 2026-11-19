@@ -123,4 +123,31 @@ describe("MIND Firestore sync ownership and schema rules", () => {
     }));
     await assertFails(setDoc(malformed, { index: -1, payload: "" }));
   });
+
+  it("rejects deletion of published metadata, manifests, and chunks", async () => {
+    const db = testEnv.authenticatedContext("user-a").firestore();
+    const metadata = doc(db, "users/user-a/sync/meta");
+    const manifest = doc(db, "users/user-a/sync/meta/snapshots/generation-1");
+    const chunk = doc(
+      db,
+      "users/user-a/sync/meta/snapshots/generation-1/chunks/0"
+    );
+
+    await assertSucceeds(setDoc(metadata, validMetadata));
+    await assertSucceeds(setDoc(manifest, validManifest));
+    await assertSucceeds(setDoc(chunk, { index: 0, payload: "safe-payload" }));
+    const { deleteDoc } = require("firebase/firestore");
+    await assertFails(deleteDoc(metadata));
+    await assertFails(deleteDoc(manifest));
+    await assertFails(deleteDoc(chunk));
+  });
+
+  it("rejects invalid manifest encoding and metadata timestamp types", async () => {
+    const db = testEnv.authenticatedContext("user-a").firestore();
+    const metadata = doc(db, "users/user-a/sync/meta");
+    const manifest = doc(db, "users/user-a/sync/meta/snapshots/generation-1");
+
+    await assertFails(setDoc(metadata, { ...validMetadata, updatedAt: "now" }));
+    await assertFails(setDoc(manifest, { ...validManifest, encoding: "plain-text" }));
+  });
 });
