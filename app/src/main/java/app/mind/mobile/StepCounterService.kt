@@ -19,6 +19,8 @@ import java.util.Locale
 class StepCounterService : Service(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var registered = false
+    private var ownerUid: String? = null
+    private var accountSuffix: String = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -38,16 +40,29 @@ class StepCounterService : Service(), SensorEventListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val requestedUid = intent?.getStringExtra(EXTRA_UID)
+        val currentUid = runCatching {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                ?.takeIf { it.isEmailVerified }?.uid
+        }.getOrNull()
+        val uid = requestedUid ?: currentUid
+        if (uid.isNullOrBlank() || uid != currentUid || (ownerUid != null && ownerUid != uid)) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        ownerUid = uid
+        accountSuffix = MindStorageIdentity.accountKey(uid)
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(System.currentTimeMillis()))
-        if (prefs.getString(KEY_DAY, null) != today) {
-            prefs.edit().putString(KEY_DAY, today).putInt(KEY_DAILY, 0).putInt(KEY_SYNCED, 0).putLong(KEY_RAW, -1L).apply()
+        if (prefs.getString(key(KEY_DAY), null) != today) {
+            prefs.edit().putString(key(KEY_DAY), today).putInt(key(KEY_DAILY), 0).putInt(key(KEY_SYNCED), 0).putLong(key(KEY_RAW), -1L).apply()
         }
         if (intent?.action == ACTION_ACK) {
-            prefs.edit().putInt(KEY_SYNCED, intent.getIntExtra(EXTRA_TOTAL, 0).coerceIn(0, 100000)).apply()
+            if (intent.getStringExtra(EXTRA_UID) != ownerUid) return START_NOT_STICKY
+            prefs.edit().putInt(key(KEY_SYNCED), intent.getIntExtra(EXTRA_TOTAL, 0).coerceIn(0, 100000)).apply()
         } else {
-            val total = prefs.getInt(KEY_DAILY, 0).coerceIn(0, 100000)
-            val synced = prefs.getInt(KEY_SYNCED, 0).coerceIn(0, 100000)
+            val total = prefs.getInt(key(KEY_DAILY), 0).coerceIn(0, 100000)
+            val synced = prefs.getInt(key(KEY_SYNCED), 0).coerceIn(0, 100000)
             publish(registered, total, (total - synced).coerceAtLeast(0))
         }
         return START_STICKY
@@ -60,17 +75,17 @@ class StepCounterService : Service(), SensorEventListener {
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(now))
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val snapshot = StepCounterSnapshot(
-            day = prefs.getString(KEY_DAY, null),
-            rawTotal = prefs.getLong(KEY_RAW, -1L),
-            dailyTotal = prefs.getInt(KEY_DAILY, 0),
-            syncedTotal = prefs.getInt(KEY_SYNCED, 0)
+            day = prefs.getString(key(KEY_DAY), null),
+            rawTotal = prefs.getLong(key(KEY_RAW), -1L),
+            dailyTotal = prefs.getInt(key(KEY_DAILY), 0),
+            syncedTotal = prefs.getInt(key(KEY_SYNCED), 0)
         )
         val update = recordStepReading(snapshot, today, raw)
         prefs.edit()
-            .putString(KEY_DAY, update.snapshot.day)
-            .putLong(KEY_RAW, update.snapshot.rawTotal)
-            .putInt(KEY_DAILY, update.snapshot.dailyTotal)
-            .putInt(KEY_SYNCED, update.snapshot.syncedTotal)
+            .putString(key(KEY_DAY), update.snapshot.day)
+            .putLong(key(KEY_RAW), update.snapshot.rawTotal)
+            .putInt(key(KEY_DAILY), update.snapshot.dailyTotal)
+            .putInt(key(KEY_SYNCED), update.snapshot.syncedTotal)
             .apply()
         val unsynced = (update.snapshot.dailyTotal - update.snapshot.syncedTotal).coerceAtLeast(0)
         publish(true, update.snapshot.dailyTotal, unsynced)
@@ -88,9 +103,11 @@ class StepCounterService : Service(), SensorEventListener {
         stopSelf()
     }
 
+    private fun key(base: String): String = "${base}_$accountSuffix"
+
     private fun publish(supported: Boolean, total: Int, delta: Int) {
         sendBroadcast(Intent(ACTION_STEP_UPDATE).setPackage(packageName)
-            .putExtra(EXTRA_SUPPORTED, supported).putExtra(EXTRA_TOTAL, total)
+            .putExtra(EXTRA_UID, ownerUid).putExtra(EXTRA_SUPPORTED, supported).putExtra(EXTRA_TOTAL, total)
             .putExtra(EXTRA_DELTA, delta).putExtra(EXTRA_AT, System.currentTimeMillis()))
     }
 
@@ -122,6 +139,7 @@ class StepCounterService : Service(), SensorEventListener {
         const val EXTRA_TOTAL = "total"
         const val EXTRA_DELTA = "delta"
         const val EXTRA_AT = "at"
+        const val EXTRA_UID = "owner_uid"
         private const val PREFS = "mind_step_sensor"
         private const val KEY_DAY = "day"
         private const val KEY_RAW = "raw_total"
