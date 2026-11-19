@@ -3,7 +3,7 @@
 Last reviewed: 2026-11-19
 Active repository: `mousslmal5-devaloper/mind`
 Active branch: `feature/native-rebuild`
-Current baseline commit: `4a8c237f1582b74b4b011ee660148f807734eb5d`
+Current baseline commit: `bf518840317c10ca459392ec6bc10fb0048aa9f1`
 Pull request: #1 (open draft; do not merge without explicit user approval).
 
 ## [TECH_STACK]
@@ -49,7 +49,7 @@ Pull request: #1 (open draft; do not merge without explicit user approval).
 - Verified visual tokens: dark background `#0d0d0f`; card `rgba(255,255,255,.055)`; border `rgba(255,255,255,.09)`; text `#f4f4f6`; secondary `#a2a2ab`; gold `#e8c547` / `#d4a942`; Cairo; radial gold glow; ambient moving orbs; translucent rounded cards; floating bottom navigation; responsive side navigation; animated transitions and charts.
 
 ## [CURRENT_IMPLEMENTATION]
-Verified in source at baseline commit `9d5276254b921e1f5231ffd40bcbc4581977aee7`:
+Verified in source at baseline commit `bf518840317c10ca459392ec6bc10fb0048aa9f1`:
 - Native Compose shell, animated ambient background, glass-card primitives and responsive bottom/side navigation.
 - Nutrition screen: calorie input, daily total, seven-day bars, last-30 history and delete; entries persisted locally in DataStore.
 - Journal screen: text entry, dated history and delete; entries persisted locally in DataStore. The reference defines the journal module but does not expose a navigation entry point in its visible navigation, so surfacing it remains unresolved rather than inventing a new dashboard shortcut.
@@ -63,7 +63,7 @@ Verified in source at baseline commit `9d5276254b921e1f5231ffd40bcbc4581977aee7`
 - Firebase email/password sign-in/create-account and email verification. Google/Facebook/Apple sign-in and Firestore sync/restore are not verified as implemented.
 - Settings milestone in progress: persisted Arabic/English app locale selection through AndroidX AppCompat, and persistent dark/light/system appearance selection with dark and light palettes. English translation of all feature-screen copy is still pending; this is not yet full bilingual parity.
 - DataStore currently persists the implemented records listed above. Room is only a declared dependency; do not claim Room-backed storage.
-- Unit tests exist for step-counter math, workout-distance math, and nutrition/journal input/date-total rules. CI run 44471696348 attempt 1 passed Unit tests; Assemble debug APK initially failed because Maven Central returned HTTP 403 while resolving dependencies. Assemble retry (attempt 2) is still in progress; no new APK artifact is verified for this commit yet. No connected/emulator test job is currently present.
+- Unit tests exist for step-counter math, workout-distance math, and nutrition/journal input/date-total rules. CI run `44515809829` on commit `bf518840317c10ca459392ec6bc10fb0048aa9f1` completed successfully: `Assemble debug APK` and `Unit tests` both passed. Artifact `MIND-debug-apk` was uploaded (21,273,649 bytes; SHA-256 `a3c9825b6a9b35ce3e5ee3ef03a1eabe5cd2202ae5974c664ffa3be13704e25a`). No connected/emulator test job is currently present.
 
 ## [ORPHANS & PENDING]
 Every item below remains open until implemented from the exact HTML behavior, persisted, and covered by a verification goal.
