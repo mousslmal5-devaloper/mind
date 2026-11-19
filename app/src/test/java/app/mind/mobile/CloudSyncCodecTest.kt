@@ -41,6 +41,50 @@ class CloudSyncCodecTest {
     }
 
     @Test
+    fun cloudRestoreMapsHistoryAndPreservesDeviceOnlyState() {
+        val now = System.currentTimeMillis()
+        val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date(now))
+        val snapshot = CloudSyncCodec.fromLocal(
+            MindSavedState(
+                waterGoal = 10,
+                waterEntries = listOf(WaterEntry(now - 1_000L), WaterEntry(now)),
+                stepEntries = listOf(StepEntry(now, 450)),
+                habitHistory = listOf(HabitDayRecord(todayKey, 5, 3)),
+                studySessions = listOf(StudySession(now, 30)),
+                sleepSessions = listOf(SleepSession(now - 8 * 3_600_000L, now)),
+                habitNames = "Read|Walk|Learn",
+                noteText = "Cloud note",
+                focusMode = "استراحة",
+                focusDurationMinutes = 45
+            ),
+            revision = 2L
+        )
+        val deviceState = MindSavedState(
+            activeSleepStartedAt = now - 600_000L,
+            focusSeconds = 123,
+            uiLanguage = "en",
+            uiAppearance = "light"
+        )
+
+        val restored = CloudSyncCodec.toLocal(snapshot, deviceState)
+
+        assertEquals(2, restored.water)
+        assertEquals(10, restored.waterGoal)
+        assertEquals(450, restored.steps)
+        assertEquals(5, restored.habitMask)
+        assertEquals(30, restored.studyMinutes)
+        assertEquals(8f, restored.sleepHours, 0.01f)
+        assertEquals("Cloud note", restored.noteText)
+        assertEquals("Read|Walk|Learn", restored.habitNames)
+        assertEquals(45, restored.focusDurationMinutes)
+        assertEquals("en", restored.uiLanguage)
+        assertEquals("light", restored.uiAppearance)
+        assertEquals(123, restored.focusSeconds)
+        assertEquals(deviceState.activeSleepStartedAt, restored.activeSleepStartedAt)
+    }
+
+    @Test
     fun chunkingRespectsUtf8ByteLimitAndPreservesEveryRecord() {
         val source = JsonArray().apply {
             add(JsonPrimitive("مرحبا".repeat(12)))
