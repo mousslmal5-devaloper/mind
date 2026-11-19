@@ -98,14 +98,14 @@ object SleepAlarm {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.timeInMillis, alarmPendingIntent(context, accountKey))
             } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, next.timeInMillis, alarmPendingIntent(context))
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, next.timeInMillis, alarmPendingIntent(context, accountKey))
             }
         }.onFailure { Log.e("MIND", "Unable to schedule sleep alarm", it) }
     }
 
     private fun cancel(context: Context, accountKey: String) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        runCatching { alarmManager.cancel(alarmPendingIntent(context)) }
+        runCatching { alarmManager.cancel(alarmPendingIntent(context, accountKey)) }
             .onFailure { Log.e("MIND", "Unable to cancel sleep alarm", it) }
     }
 
