@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import java.util.Calendar
@@ -19,17 +20,21 @@ object SleepAlarm {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_HOUR = "hour"
     private const val KEY_MINUTE = "minute"
+    private const val KEY_SOUND = "sound"
+    private const val KEY_SOUND_URI = "sound_uri"
     private const val REQUEST_CODE = 7401
     private const val CHANNEL_ID = "mind_sleep_alarm"
 
-    data class Settings(val enabled: Boolean, val hour: Int, val minute: Int)
+    data class Settings(val enabled: Boolean, val hour: Int, val minute: Int, val sound: String, val soundUri: String?)
 
     fun read(context: Context): Settings {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return Settings(
             enabled = prefs.getBoolean(KEY_ENABLED, false),
             hour = prefs.getInt(KEY_HOUR, 7).coerceIn(0, 23),
-            minute = prefs.getInt(KEY_MINUTE, 0).coerceIn(0, 59)
+            minute = prefs.getInt(KEY_MINUTE, 0).coerceIn(0, 59),
+            sound = prefs.getString(KEY_SOUND, "none")?.takeIf { it == "none" || it == "beep" || it == "file" } ?: "none",
+            soundUri = prefs.getString(KEY_SOUND_URI, null)
         )
     }
 
@@ -42,6 +47,14 @@ object SleepAlarm {
             .putInt(KEY_MINUTE, safeMinute)
             .apply()
         if (enabled) schedule(context, safeHour, safeMinute) else cancel(context)
+    }
+
+    fun saveSound(context: Context, sound: String, soundUri: String? = null) {
+        val safeSound = sound.takeIf { it == "none" || it == "beep" || it == "file" } ?: "none"
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_SOUND, safeSound)
+            .putString(KEY_SOUND_URI, if (safeSound == "file") soundUri else null)
+            .apply()
     }
 
     fun rescheduleIfEnabled(context: Context) {
@@ -82,13 +95,19 @@ object SleepAlarm {
 
     internal fun showNotification(context: Context) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        val settings = read(context)
+        val alarmSound = when (settings.sound) {
+            "beep" -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val channel = NotificationChannel(CHANNEL_ID, "منبّه النوم", NotificationManager.IMPORTANCE_HIGH).apply {
+            "file" -> settings.soundUri?.let { Uri.parse(it) }
+            else -> null
+        }
+        val channelId = CHANNEL_ID + "_" + settings.sound + "_" + (settings.soundUri?.hashCode() ?: 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "منبّه النوم", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "تنبيه وقت الاستيقاظ المحدد في MIND"
                 enableVibration(true)
-                setSound(sound, AudioAttributes.Builder()
+                setSound(alarmSound, AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build())
@@ -102,9 +121,9 @@ object SleepAlarm {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         val contentIntent = PendingIntent.getActivity(context, REQUEST_CODE + 1, openApp, contentFlags)
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(context, CHANNEL_ID)
+            Notification.Builder(context, channelId)
         } else {
-            Notification.Builder(context).setPriority(Notification.PRIORITY_HIGH)
+            Notification.Builder(context).setPriority(Notification.PRIORITY_HIGH).setSound(alarmSound)
         }
         val notification = builder
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -129,6 +148,6 @@ class SleepAlarmReceiver : BroadcastReceiver() {
 
 class SleepAlarmBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action == Intent.ACTION_BOOT_COMPLETED) SleepAlarm.rescheduleIfEnabled(context)
+        if (intent?.action == Intent.ACTION_BOOT_COMPLETED || intent?.action == Intent.ACTION_TIME_CHANGED || intent?.action == Intent.ACTION_TIMEZONE_CHANGED) SleepAlarm.rescheduleIfEnabled(context)
     }
 }
