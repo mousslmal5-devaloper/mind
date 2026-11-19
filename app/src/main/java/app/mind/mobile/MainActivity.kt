@@ -188,8 +188,11 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         }.getOrNull())
     }
     var loadedStorageKey by rememberSaveable { mutableStateOf("uninitialized") }
+    var accountReloadVersion by remember { mutableIntStateOf(0) }
+    var legacyImportBusy by remember { mutableStateOf(false) }
+    var legacyImportMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(activeUid) {
+    LaunchedEffect(activeUid, accountReloadVersion) {
         stateLoaded = false
         loadedStorageKey = "loading"
         val saved = runCatching { loadMindSavedState(context, activeUid) }
@@ -469,6 +472,31 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                 "settings", "me" -> SettingsScreen(
                                     language = uiLanguage,
                                     appearance = uiAppearance,
+                                    userId = activeUid,
+                                    importBusy = legacyImportBusy,
+                                    importMessage = legacyImportMessage,
+                                    onImportLegacy = {
+                                        val uid = activeUid
+                                        if (!uid.isNullOrBlank() && !legacyImportBusy) {
+                                            legacyImportBusy = true
+                                            legacyImportMessage = null
+                                            stateLoaded = false
+                                            loadedStorageKey = "loading"
+                                            appScope.launch {
+                                                val result = importLegacyMindData(context, uid)
+                                                legacyImportMessage = when (result) {
+                                                    LegacyMindImportResult.Imported -> mindString(uiLanguage == "en", "تم استيراد بيانات هذا الجهاز إلى حسابك. بقيت النسخة المحلية الأصلية محفوظة.", "This device's data was imported into your account. The original local copy remains intact.")
+                                                    LegacyMindImportResult.NoLegacyData -> mindString(uiLanguage == "en", "لا توجد بيانات محلية قديمة لاستيرادها.", "There is no legacy local data to import.")
+                                                    LegacyMindImportResult.AccountAlreadyHasData -> mindString(uiLanguage == "en", "يحتوي هذا الحساب بالفعل على بيانات؛ لم يتم استبدالها.", "This account already contains data; nothing was overwritten.")
+                                                    LegacyMindImportResult.AlreadyImported -> mindString(uiLanguage == "en", "سبق استيراد البيانات المحلية إلى هذا الحساب.", "Legacy data has already been imported into this account.")
+                                                    LegacyMindImportResult.OwnedByAnotherAccount -> mindString(uiLanguage == "en", "البيانات المحلية مرتبطة بحساب آخر ولا يمكن استيرادها إلى هذا الحساب.", "Legacy data is already assigned to another account and cannot be imported here.")
+                                                    LegacyMindImportResult.Failed -> mindString(uiLanguage == "en", "تعذر إتمام الاستيراد بأمان. بياناتك الأصلية لم تُحذف؛ حاول مجدداً.", "The import could not be completed safely. Your original data was not deleted; please retry.")
+                                                }
+                                                accountReloadVersion++
+                                                legacyImportBusy = false
+                                            }
+                                        }
+                                    },
                                     onLanguage = { selected ->
                                         uiLanguage = selected
                                         appScope.launch {
@@ -1386,6 +1414,10 @@ private fun NotesScreen(value: String, onValue: (String) -> Unit) {
 private fun SettingsScreen(
     language: String,
     appearance: String,
+    userId: String?,
+    importBusy: Boolean,
+    importMessage: String?,
+    onImportLegacy: () -> Unit,
     onLanguage: (String) -> Unit,
     onAppearance: (String) -> Unit,
     onAccount: () -> Unit
@@ -1416,7 +1448,23 @@ private fun SettingsScreen(
                 FilterChip(selected = language == "en", onClick = { onLanguage("en") }, label = { Text("English") })
             }
         }
-        ModuleCard(if (english) "Account" else "الحساب", if (english) "Sign in or create an account" else "تسجيل الدخول أو إنشاء حساب", "auth", Modifier.fillMaxWidth()) { onAccount() }
+        if (userId.isNullOrBlank()) {
+            ModuleCard(if (english) "Account" else "الحساب", if (english) "Sign in or create an account" else "تسجيل الدخول أو إنشاء حساب", "auth", Modifier.fillMaxWidth()) { onAccount() }
+        } else {
+            GlassCard {
+                Text(if (english) "Import this device's local data" else "استيراد بيانات هذا الجهاز", fontWeight = FontWeight.Bold, color = Gold)
+                Text(
+                    if (english) "One-time, explicit import into this signed-in account. Existing account data is never replaced; the original local copy is kept. Active sleep timers and step sensor baselines are not transferred."
+                    else "استيراد لمرة واحدة وباختيارك إلى هذا الحساب. لن نستبدل بيانات الحساب الموجودة، وستبقى النسخة المحلية الأصلية. لا ننقل مؤقت النوم النشط أو خط أساس حساس الخطوات.",
+                    color = Muted, fontSize = 12.sp
+                )
+                importMessage?.let { Text(it, color = Muted, fontSize = 12.sp) }
+                Button(onClick = onImportLegacy, enabled = !importBusy, modifier = Modifier.fillMaxWidth()) {
+                    if (importBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(if (english) "Import local data" else "استيراد البيانات المحلية")
+                }
+            }
+        }
     }
 }
 
