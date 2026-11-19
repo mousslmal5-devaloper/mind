@@ -521,7 +521,8 @@ private fun BottomNavigation(page: String, onSelect: (String) -> Unit) {
     NavigationBar(
         modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
             .clip(RoundedCornerShape(24.dp)).border(1.dp, GlassBorder, RoundedCornerShape(24.dp)),
-        containerColor = Color(0xE6151518), contentColor = Color.White,
+        containerColor = LocalMindPalette.current.surface.copy(alpha = 0.90f),
+        contentColor = LocalMindPalette.current.text,
         tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
         NavigationBarItem(page == "home", { onSelect("home") }, { Icon(Icons.Rounded.Home, null) }, label = { Text("الرئيسية", fontSize = 10.sp) })
