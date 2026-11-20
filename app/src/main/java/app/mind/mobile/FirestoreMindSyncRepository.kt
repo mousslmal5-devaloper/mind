@@ -173,12 +173,22 @@ internal class FirestoreMindSyncRepository(
             .documents
         require(documents.size == expectedCount) { "Cloud snapshot is incomplete" }
 
+        // Reject oversized cloud payloads before allocating the combined Base64 string.
+        // A 16 MiB UTF-8 snapshot needs at most ceil(bytes / 3) * 4 Base64 characters.
+        val maxEncodedChars = ((MAX_SNAPSHOT_BYTES + 2) / 3) * 4
+        var encodedLength = 0
         val encoded = buildString {
             documents.forEachIndexed { expectedIndex, document ->
                 val actualIndex = document.getLong(FIELD_INDEX)?.toInt()
                 require(actualIndex == expectedIndex) { "Cloud snapshot chunk sequence is invalid" }
-                append(document.getString(FIELD_PAYLOAD)
-                    ?: throw IllegalStateException("Cloud snapshot contains an empty chunk"))
+                val payload = document.getString(FIELD_PAYLOAD)
+                    ?: throw IllegalStateException("Cloud snapshot contains an empty chunk")
+                require(payload.isNotEmpty()) { "Cloud snapshot contains an empty chunk" }
+                encodedLength += payload.length
+                require(encodedLength <= maxEncodedChars) {
+                    "Cloud snapshot exceeds the supported restore size"
+                }
+                append(payload)
             }
         }
         val json = try {
@@ -246,5 +256,6 @@ internal class FirestoreMindSyncRepository(
         const val CHUNK_CHAR_COUNT = 180 * 1024
         const val MAX_BATCH_WRITES = 450
         const val MAX_CHUNKS = 256
+        const val MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024
     }
 }
