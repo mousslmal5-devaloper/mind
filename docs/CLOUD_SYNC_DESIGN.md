@@ -62,9 +62,11 @@ Use a monotonically increasing per-user revision and transactionally compare the
 
 Keep DataStore as the source of truth for immediate UI updates. Queue pending sync work and retry when authenticated connectivity returns; use WorkManager with network constraints for durable background retries. Do not block app startup or feature interactions on Firestore availability.
 
-## Security rules required before implementation
+## Security rules implemented
 
-The current root-only rule is insufficient for the proposed nested documents. Before enabling sync, add an explicit recursive match under `/users/{userId}/sync/{document=**}` that permits read/write only when `request.auth != null && request.auth.uid == userId`. Add validation for document shape, schema version, and bounded payload size where practical. Test that unauthenticated users and a different UID cannot read or write any sync document.
+The current Firestore rules use explicit matches for the sync metadata document, generation manifests, and chunk documents. Access is restricted to the authenticated owner UID. The rules validate allowed fields, schema version, revision, checksum format, encoding, timestamp, chunk index, and bounded non-empty payloads; deletion of published sync documents is denied. Emulator tests cover owner access, unauthenticated and cross-user denial, malformed/oversized documents, invalid metadata, and denied deletes.
+
+Do not replace these explicit rules with a broad recursive read/write rule: that would weaken the current document-level validation.
 
 ## Required tests before enabling sync
 
@@ -79,13 +81,22 @@ The current root-only rule is insufficient for the proposed nested documents. Be
 - Restore validation rejects missing chunks, invalid records, and unsupported schema versions.
 - API 23 compatibility and existing unit/build checks.
 
-## Implementation sequence
+## Implementation status and remaining sequence
 
-1. Add pure Kotlin snapshot/chunk serialization and validation with unit tests; no network writes yet.
-2. Extend and emulator-test Firestore security rules for UID isolation.
-3. Add repository methods for upload, manifest verification, restore, and revision-checked publication.
-4. Add explicit first-link/restore choice UI and preserve local data.
-5. Add durable WorkManager retry and sync status/error UI.
-6. Run unit tests, assembleDebug, and connected device tests where supported before claiming sync is operational.
+Completed in code and covered by CI:
+1. Pure Kotlin snapshot serialization, schema/record validation, UTF-8 chunk sizing, and round-trip/negative unit tests.
+2. Firestore security rules with UID isolation and emulator tests.
+3. Repository upload, manifest verification, restore, checksum validation, and revision-checked active-generation publication.
+4. Manual backup and explicit check/confirm-restore UI; restore creates a private local backup before replacing local data.
+5. Restore payload size is checked before concatenating and Base64-decoding cloud chunks; encoded snapshots are also bounded before upload.
+
+Still required:
+1. First-link decision UI (upload, restore, keep local, and merge where safe).
+2. History merge/deduplication and explicit scalar/text conflict resolution.
+3. Durable WorkManager retry and visible sync status/error handling.
+4. Safe stale-generation cleanup after confirming the active pointer.
+5. Physical-device tests for Email/Password and Google Sign-In, Firebase upload/restore, interrupted uploads, two-device revision conflicts, and Android API 23 compatibility.
+
+The latest GitHub Actions run for commit `38a617a` passed Firestore rules tests, Kotlin unit tests, and debug APK assembly. This is CI evidence only; it is not a substitute for live Firebase or physical-device end-to-end verification.
 
 Manual cloud backup and user-confirmed restore are implemented in code. Google Sign-In credential exchange is also implemented in code. These flows must not be described as production-verified until actual Firebase account sign-in, upload/restore, concurrent-device conflict, interrupted upload, and API 23 device tests have passed. The first-link merge/keep-local decision UI, automatic offline retry, and generation garbage collection remain unimplemented.
