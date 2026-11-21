@@ -165,6 +165,39 @@ suspend fun changeMindWaterFromWidget(context: Context, uid: String?, delta: Int
     return result
 }
 
+suspend fun toggleMindHabitFromWidget(context: Context, uid: String?, index: Int): Pair<Int, List<String>> {
+    require(index in 0 until 20) { "Habit index is out of range" }
+    var resultMask = 0
+    var names = emptyList<String>()
+    val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
+        names = (preferences[MindPreferenceKeys.habitNames] ?: "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم")
+            .split("|").filter { it.isNotBlank() }.take(20)
+        if (index >= names.size) return@edit
+        val history = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]").toMutableList()
+        val previous = history.lastOrNull { it.dateKey == today }
+        val mask = (previous?.completedMask ?: preferences[MindPreferenceKeys.habitMask] ?: 0)
+            .coerceAtLeast(0)
+        resultMask = mask xor (1 shl index)
+        history.removeAll { it.dateKey == today }
+        history += HabitDayRecord(today, resultMask, names.size)
+        preferences[MindPreferenceKeys.habitMask] = resultMask
+        preferences[MindPreferenceKeys.habitHistory] = encodeHabitHistory(history.takeLast(730))
+    }
+    return resultMask to names
+}
+
+suspend fun readMindHabitsForWidget(context: Context, uid: String?): Pair<Int, List<String>> {
+    val preferences = mindDataStore(context.applicationContext, uid).data.first()
+    val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+    val names = (preferences[MindPreferenceKeys.habitNames] ?: "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم")
+        .split("|").filter { it.isNotBlank() }.take(20)
+    val history = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]")
+    val mask = history.lastOrNull { it.dateKey == today }?.completedMask
+        ?: (preferences[MindPreferenceKeys.habitMask] ?: 0)
+    return mask to names
+}
+
 suspend fun readMindWaterForWidget(context: Context, uid: String?): Pair<Int, Int> {
     val state = loadMindSavedState(context.applicationContext, uid)
     val todayStart = java.util.Calendar.getInstance().apply {
