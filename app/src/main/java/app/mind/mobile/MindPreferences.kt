@@ -136,6 +136,48 @@ suspend fun loadMindSavedState(context: Context, uid: String? = null): MindSaved
     )
 }
 
+/**
+ * Atomically changes today's water count from a home-screen widget.
+ * The same account-scoped DataStore and timestamp history are used by the app UI.
+ */
+suspend fun changeMindWaterFromWidget(context: Context, uid: String?, delta: Int): Int {
+    require(delta == 1 || delta == -1) { "Water widget delta must be +1 or -1" }
+    var result = 0
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
+        val entries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]").toMutableList()
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayCount = entries.count { it.recordedAt >= todayStart }
+        if (delta > 0 && todayCount < 40) {
+            entries += WaterEntry(System.currentTimeMillis())
+        } else if (delta < 0 && todayCount > 0) {
+            val lastToday = entries.indexOfLast { it.recordedAt >= todayStart }
+            if (lastToday >= 0) entries.removeAt(lastToday)
+        }
+        result = entries.count { it.recordedAt >= todayStart }.coerceIn(0, 40)
+        preferences[MindPreferenceKeys.water] = result
+        preferences[MindPreferenceKeys.waterEntries] = encodeWaterEntries(entries.takeLast(20000))
+    }
+    return result
+}
+
+suspend fun readMindWaterForWidget(context: Context, uid: String?): Pair<Int, Int> {
+    val state = loadMindSavedState(context.applicationContext, uid)
+    val todayStart = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.HOUR_OF_DAY, 0)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val count = if (state.waterEntries.isEmpty()) state.water.coerceIn(0, 40)
+        else state.waterEntries.count { it.recordedAt >= todayStart }.coerceIn(0, 40)
+    return count to state.waterGoal.coerceIn(1, 20)
+}
+
 suspend fun saveMindSavedState(context: Context, state: MindSavedState, uid: String? = null) {
     mindDataStore(context, uid).edit { preferences ->
         preferences[MindPreferenceKeys.water] = state.water.coerceIn(0, 40)
