@@ -255,7 +255,7 @@ enum class LegacyMindImportResult {
 }
 
 private fun MindSavedState.hasImportableLegacyData(): Boolean =
-    water > 0 || waterEntries.isNotEmpty() || stepEntries.isNotEmpty() ||
+    water > 0 || waterEntries.isNotEmpty() || stepEntries.isNotEmpty() || stepGoal != 10_000 ||
         studyMinutes > 0 || studySessions.isNotEmpty() ||
         sleepHours > 0f || sleepSessions.isNotEmpty() ||
         habitHistory.isNotEmpty() || habitMask != 0 ||
