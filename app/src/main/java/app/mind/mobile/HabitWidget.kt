@@ -61,7 +61,7 @@ class HabitWidget : AppWidgetProvider() {
 
     private fun renderOne(context: Context, manager: AppWidgetManager, widgetId: Int, mask: Int, names: List<String>) {
         val views = RemoteViews(context.packageName, R.layout.widget_habits)
-        views.setTextViewText(R.id.habit_summary, "$" + "Integer.bitCount(mask) / $" + "names.size")
+        views.setTextViewText(R.id.habit_summary, Integer.bitCount(mask).toString() + " / " + names.size.toString())
         val ids = intArrayOf(R.id.habit_row_1, R.id.habit_row_2, R.id.habit_row_3)
         val labels = intArrayOf(R.id.habit_name_1, R.id.habit_name_2, R.id.habit_name_3)
         val checks = intArrayOf(R.id.habit_check_1, R.id.habit_check_2, R.id.habit_check_3)
