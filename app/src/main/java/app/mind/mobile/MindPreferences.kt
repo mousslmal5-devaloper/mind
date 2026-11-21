@@ -54,6 +54,7 @@ data class MindSavedState(
     val waterGoal: Int = 8,
     val waterEntries: List<WaterEntry> = emptyList(),
     val steps: Int = 0,
+    val stepGoal: Int = 10_000,
     val studyMinutes: Int = 0,
     val sleepHours: Float = 0f,
     val sleepSessions: List<SleepSession> = emptyList(),
@@ -79,6 +80,7 @@ private object MindPreferenceKeys {
     val water = intPreferencesKey("water")
     val waterGoal = intPreferencesKey("water_goal")
     val steps = intPreferencesKey("steps")
+    val stepGoal = intPreferencesKey("step_goal")
     val studyMinutes = intPreferencesKey("study_minutes")
     val sleepHours = floatPreferencesKey("sleep_hours")
     val habitMask = intPreferencesKey("habit_mask")
@@ -111,6 +113,7 @@ suspend fun loadMindSavedState(context: Context, uid: String? = null): MindSaved
         water = preferences[MindPreferenceKeys.water] ?: 0,
         waterGoal = (preferences[MindPreferenceKeys.waterGoal] ?: 8).coerceIn(1, 20),
         steps = (preferences[MindPreferenceKeys.steps] ?: 0).coerceIn(0, 100_000),
+        stepGoal = (preferences[MindPreferenceKeys.stepGoal] ?: 10_000).coerceIn(1_000, 100_000),
         studyMinutes = (preferences[MindPreferenceKeys.studyMinutes] ?: 0).coerceAtLeast(0),
         sleepHours = (preferences[MindPreferenceKeys.sleepHours] ?: 0f).coerceIn(0f, 16f),
         sleepSessions = decodeSleepSessions(preferences[MindPreferenceKeys.sleepSessions] ?: "[]"),
@@ -216,6 +219,7 @@ suspend fun saveMindSavedState(context: Context, state: MindSavedState, uid: Str
         preferences[MindPreferenceKeys.water] = state.water.coerceIn(0, 40)
         preferences[MindPreferenceKeys.waterGoal] = state.waterGoal.coerceIn(1, 20)
         preferences[MindPreferenceKeys.steps] = state.steps.coerceIn(0, 100_000)
+        preferences[MindPreferenceKeys.stepGoal] = state.stepGoal.coerceIn(1_000, 100_000)
         preferences[MindPreferenceKeys.studyMinutes] = state.studyMinutes.coerceAtLeast(0)
         preferences[MindPreferenceKeys.sleepHours] = state.sleepHours.coerceIn(0f, 16f)
         preferences[MindPreferenceKeys.sleepSessions] = encodeSleepSessions(state.sleepSessions)
