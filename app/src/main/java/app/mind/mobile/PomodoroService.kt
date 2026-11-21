@@ -197,7 +197,7 @@ class PomodoroService : Service() {
         const val ACTION_RESET = "app.mind.mobile.POMODORO_RESET"; const val ACTION_MODE = "app.mind.mobile.POMODORO_MODE"
         const val ACTION_PRESET = "app.mind.mobile.POMODORO_PRESET"; const val ACTION_ADD = "app.mind.mobile.POMODORO_ADD"
         const val ACTION_TOGGLE = "app.mind.mobile.POMODORO_TOGGLE"; const val ACTION_SYNC = "app.mind.mobile.POMODORO_SYNC"
-        private const val PREFS = "mind_pomodoro_timer"; private const val KEY_INITIALIZED = "initialized"; private const val KEY_REMAINING = "remaining"; private const val KEY_END_AT = "end_at"
+        private const val PREFS = "mind_pomodoro_timer"; private const val KEY_UID = "uid"; private const val KEY_INITIALIZED = "initialized"; private const val KEY_REMAINING = "remaining"; private const val KEY_END_AT = "end_at"
         private const val KEY_RUNNING = "running"; private const val KEY_MODE = "mode"; private const val KEY_DURATION = "duration"
         private const val CHANNEL_ID = "mind_pomodoro"; private const val NOTIFICATION_ID = 2602; private const val TAG = "MIND_POMODORO"
     }
