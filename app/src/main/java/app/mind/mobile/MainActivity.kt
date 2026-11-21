@@ -200,6 +200,17 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     // Keep the listener aligned with the latest Compose state. The listener is
     // registered once, so reading activeUid directly would capture its first value.
     val currentActiveUid by rememberUpdatedState(activeUid)
+    val sendPomodoroCommand: (String, Int?, String?, Int?) -> Unit = { action, seconds, mode, duration ->
+        val command = Intent(context, PomodoroService::class.java).setAction(action)
+            .putExtra(PomodoroService.EXTRA_UID, activeUid)
+        seconds?.let { command.putExtra(PomodoroService.EXTRA_SECONDS, it) }
+        mode?.let { command.putExtra(PomodoroService.EXTRA_MODE, it) }
+        duration?.let { command.putExtra(PomodoroService.EXTRA_DURATION, it) }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(command)
+            else context.startService(command)
+        }.onFailure { Log.e("MIND", "Unable to control Pomodoro timer", it) }
+    }
     val firebaseAuth = remember { com.google.firebase.auth.FirebaseAuth.getInstance() }
     DisposableEffect(firebaseAuth) {
         val authListener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { auth ->
@@ -219,6 +230,32 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         }
         firebaseAuth.addAuthStateListener(authListener)
         onDispose { firebaseAuth.removeAuthStateListener(authListener) }
+    }
+
+    DisposableEffect(context) {
+        val timerReceiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                if (intent?.action != PomodoroService.ACTION_STATE) return
+                focusSeconds = intent.getIntExtra(PomodoroService.EXTRA_SECONDS, focusSeconds).coerceAtLeast(0)
+                focusRunning = intent.getBooleanExtra(PomodoroService.EXTRA_RUNNING, false)
+                focusMode = intent.getStringExtra(PomodoroService.EXTRA_MODE)?.takeIf { it == "تركيز" || it == "استراحة" } ?: focusMode
+                focusDurationMinutes = intent.getIntExtra(PomodoroService.EXTRA_DURATION, focusDurationMinutes).coerceIn(1, 180)
+                if (intent.getBooleanExtra(PomodoroService.EXTRA_COMPLETED, false)) {
+                    appScope.launch {
+                        runCatching { loadMindSavedState(context, currentActiveUid) }.onSuccess { saved ->
+                            studySessions = saved.studySessions
+                            studyMinutes = saved.studyMinutes
+                        }.onFailure { Log.e("MIND", "Unable to refresh completed study session", it) }
+                    }
+                }
+            }
+        }
+        context.registerReceiver(timerReceiver, IntentFilter(PomodoroService.ACTION_STATE))
+        onDispose { runCatching { context.unregisterReceiver(timerReceiver) } }
+    }
+
+    LaunchedEffect(activeUid, stateLoaded) {
+        if (stateLoaded) sendPomodoroCommand(PomodoroService.ACTION_SYNC, null, null, null)
     }
 
     LaunchedEffect(activeUid, accountReloadVersion) {
@@ -345,25 +382,6 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         }
     }
 
-    LaunchedEffect(focusRunning, focusSeconds) {
-        if (focusRunning && focusSeconds > 0) {
-            delay(1000)
-            focusSeconds -= 1
-            if (focusSeconds == 0) {
-                focusRunning = false
-                if (focusMode == "تركيز") {
-                    studySessions = (studySessions + StudySession(System.currentTimeMillis(), focusDurationMinutes)).takeLast(5000)
-                    studyMinutes += focusDurationMinutes
-                    focusMode = "استراحة"
-                    focusSeconds = 5 * 60
-                } else {
-                    focusMode = "تركيز"
-                    focusSeconds = focusDurationMinutes * 60
-                }
-            }
-        }
-    }
-
     val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val useDark = uiAppearance == "dark" || (uiAppearance == "auto" && systemDark)
     val palette = if (useDark) DarkMindPalette else LightMindPalette
@@ -471,11 +489,11 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     totalMinutes = studyMinutes, focusDurationMinutes = focusDurationMinutes,
                                     sessions = studySessions,
                                     onOpenMindMap = { page = "mindmap" },
-                                    onMode = { focusMode = it; focusRunning = false; focusSeconds = if (it == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
-                                    onPreset = { minutes -> focusRunning = false; focusDurationMinutes = minutes; if (focusMode == "تركيز") focusSeconds = minutes * 60 },
-                                    onToggle = { focusRunning = !focusRunning && focusSeconds > 0 },
-                                    onReset = { focusRunning = false; focusSeconds = if (focusMode == "تركيز") focusDurationMinutes * 60 else 5 * 60 },
-                                    onAddTime = { focusSeconds += 5 * 60; if (focusMode == "تركيز") focusDurationMinutes = (focusDurationMinutes + 5).coerceAtMost(180) }
+                                    onMode = { mode -> sendPomodoroCommand(PomodoroService.ACTION_MODE, null, mode, null) },
+                                    onPreset = { minutes -> sendPomodoroCommand(PomodoroService.ACTION_PRESET, null, null, minutes) },
+                                    onToggle = { sendPomodoroCommand(if (focusRunning) PomodoroService.ACTION_PAUSE else PomodoroService.ACTION_START, focusSeconds, focusMode, focusDurationMinutes) },
+                                    onReset = { sendPomodoroCommand(PomodoroService.ACTION_RESET, if (focusMode == "تركيز") focusDurationMinutes * 60 else 5 * 60, null, null) },
+                                    onAddTime = { sendPomodoroCommand(PomodoroService.ACTION_ADD, null, null, null) }
                                 )
                                 "mindmap" -> MindMapScreen()
                                 "food" -> FoodScreen(
