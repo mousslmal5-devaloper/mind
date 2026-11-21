@@ -6,4 +6,8 @@
     <string name="mind_habit_widget_description">MIND daily habits widget</string>
     <string name="mind_habit_widget_title">DAILY HABITS</string>
     <string name="mind_pomodoro_widget_description">مؤقت التركيز والاستراحة من الشاشة الرئيسية</string>
+    <string name="mind_steps_widget_description">MIND daily step counter widget</string>
+    <string name="mind_steps_widget_title">DAILY STEPS</string>
+    <string name="mind_steps_widget_active">Live sensor count</string>
+    <string name="mind_steps_widget_waiting">Waiting for step sensor</string>
 </resources>
