@@ -54,8 +54,8 @@ class WaterWidget : AppWidgetProvider() {
                 val (count, goal) = readMindWaterForWidget(context, verifiedUid())
                 ids.forEach { id ->
                     val views = RemoteViews(context.packageName, R.layout.widget_water)
-                    views.setTextViewText(R.id.water_count, "$" + "count / $" + "goal")
-                    views.setTextViewText(R.id.water_progress, "$" + "(count * 100 / goal).coerceAtMost(100)" + "%")
+                    views.setTextViewText(R.id.water_count, count.toString() + " / " + goal.toString())
+                    views.setTextViewText(R.id.water_progress, (count * 100 / goal).coerceAtMost(100).toString() + "%")
                     views.setOnClickPendingIntent(R.id.water_add, actionPendingIntent(context, ACTION_ADD, id * 2 + 1))
                     views.setOnClickPendingIntent(R.id.water_remove, actionPendingIntent(context, ACTION_REMOVE, id * 2 + 2))
                     val open = Intent(context, MainActivity::class.java).apply {
