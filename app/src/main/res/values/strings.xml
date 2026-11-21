@@ -5,4 +5,5 @@
     <string name="mind_water_widget_title">WATER INTAKE</string>
     <string name="mind_habit_widget_description">MIND daily habits widget</string>
     <string name="mind_habit_widget_title">DAILY HABITS</string>
+    <string name="mind_pomodoro_widget_description">مؤقت التركيز والاستراحة من الشاشة الرئيسية</string>
 </resources>
