@@ -40,6 +40,15 @@
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/></intent-filter>
         </receiver>
         <service android:name=".StepCounterService" android:exported="false" />
+        <service android:name=".PomodoroService" android:exported="false" />
+        <receiver android:name=".PomodoroWidget" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.mind.mobile.POMODORO_TOGGLE" />
+                <action android:name="app.mind.mobile.POMODORO_RESET" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_pomodoro_info" />
+        </receiver>
         <service android:name=".GpsWorkoutService" android:exported="false" android:foregroundServiceType="location" />
         <activity android:name=".MainActivity" android:exported="true" android:configChanges="locale|layoutDirection|orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
