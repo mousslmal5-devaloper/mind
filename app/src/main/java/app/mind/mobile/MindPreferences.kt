@@ -512,3 +512,14 @@ private fun decodeWorkoutSessions(raw: String): List<WorkoutSession> = runCatchi
         }
     }.distinctBy { it.startedAt }.takeLast(2000)
 }.getOrDefault(emptyList())
+
+/** Records a completed focus interval atomically, including when the app UI is closed. */
+suspend fun recordMindStudySession(context: Context, uid: String?, durationMinutes: Int, completedAt: Long) {
+    val duration = durationMinutes.coerceIn(1, 180)
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
+        val sessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]").toMutableList()
+        sessions += StudySession(completedAt, duration)
+        preferences[MindPreferenceKeys.studySessions] = encodeStudySessions(sessions.takeLast(5000))
+        preferences[MindPreferenceKeys.studyMinutes] = ((preferences[MindPreferenceKeys.studyMinutes] ?: 0) + duration).coerceAtLeast(0)
+    }
+}
