@@ -23,7 +23,9 @@ internal data class MindCloudSnapshot(
     val sleepSessions: List<SleepSession>,
     val workoutSessions: List<WorkoutSession>,
     val foodEntries: List<FoodEntry>,
-    val journalEntries: List<JournalEntry>
+    val journalEntries: List<JournalEntry>,
+    // Nullable for backward compatibility with existing schema-v1 cloud snapshots.
+    val stepGoal: Int? = null
 ) {
     companion object {
         const val CURRENT_SCHEMA_VERSION = 1
@@ -49,7 +51,8 @@ internal object CloudSyncCodec {
             sleepSessions = state.sleepSessions.takeLast(5_000),
             workoutSessions = state.workoutSessions.takeLast(5_000),
             foodEntries = state.foodEntries.takeLast(20_000),
-            journalEntries = state.journalEntries.takeLast(20_000)
+            journalEntries = state.journalEntries.takeLast(20_000),
+            stepGoal = state.stepGoal.coerceIn(1_000, 100_000)
         )
     }
 
@@ -79,6 +82,7 @@ internal object CloudSyncCodec {
         return currentLocal.copy(
             water = todayWater,
             waterGoal = snapshot.waterGoal,
+            stepGoal = (snapshot.stepGoal ?: currentLocal.stepGoal).coerceIn(1_000, 100_000),
             waterEntries = snapshot.waterEntries,
             steps = todaySteps,
             stepEntries = snapshot.stepEntries,
@@ -149,6 +153,7 @@ internal object CloudSyncCodec {
         }
         require(snapshot.revision >= 0L) { "Revision cannot be negative" }
         require(snapshot.waterGoal in 1..20) { "Water goal is invalid" }
+        require(snapshot.stepGoal == null || snapshot.stepGoal in 1_000..100_000) { "Step goal is invalid" }
 
         // Gson can populate Kotlin non-null properties with null when remote JSON is malformed.
         requireNotNull(snapshot.habitNames) { "Habit definitions are missing" }
