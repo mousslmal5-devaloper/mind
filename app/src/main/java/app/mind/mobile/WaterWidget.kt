@@ -27,7 +27,7 @@ class WaterWidget : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 changeMindWaterFromWidget(context, verifiedUid(), delta)
-                refreshAll(context)
+                refreshAllSuspending(context)
             } catch (error: Exception) {
                 android.util.Log.e("MIND_WATER_WIDGET", "Unable to update water intake", error)
             } finally {
@@ -40,10 +40,12 @@ class WaterWidget : AppWidgetProvider() {
         refresh(context, manager, ids)
     }
 
-    private fun refreshAll(context: Context) {
+    private suspend fun refreshAllSuspending(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, WaterWidget::class.java))
-        refresh(context, manager, ids)
+        if (ids.isEmpty()) return
+        val (count, goal) = readMindWaterForWidget(context, verifiedUid())
+        ids.forEach { id -> updateWidget(context, manager, id, count, goal) }
     }
 
     private fun refresh(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -52,28 +54,30 @@ class WaterWidget : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val (count, goal) = readMindWaterForWidget(context, verifiedUid())
-                ids.forEach { id ->
-                    val views = RemoteViews(context.packageName, R.layout.widget_water)
-                    views.setTextViewText(R.id.water_count, count.toString() + " / " + goal.toString())
-                    views.setTextViewText(R.id.water_progress, (count * 100 / goal).coerceAtMost(100).toString() + "%")
-                    views.setOnClickPendingIntent(R.id.water_add, actionPendingIntent(context, ACTION_ADD, id * 2 + 1))
-                    views.setOnClickPendingIntent(R.id.water_remove, actionPendingIntent(context, ACTION_REMOVE, id * 2 + 2))
-                    val open = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    }
-                    val openPending = PendingIntent.getActivity(
-                        context, id + 800, open,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.water_widget_root, openPending)
-                    manager.updateAppWidget(id, views)
-                }
+                ids.forEach { id -> updateWidget(context, manager, id, count, goal) }
             } catch (error: Exception) {
                 android.util.Log.e("MIND_WATER_WIDGET", "Unable to render water widget", error)
             } finally {
                 pendingResult.finish()
             }
         }
+    }
+
+    private fun updateWidget(context: Context, manager: AppWidgetManager, id: Int, count: Int, goal: Int) {
+        val views = RemoteViews(context.packageName, R.layout.widget_water)
+        views.setTextViewText(R.id.water_count, count.toString() + " / " + goal.toString())
+        views.setTextViewText(R.id.water_progress, (count * 100 / goal).coerceAtMost(100).toString() + "%")
+        views.setOnClickPendingIntent(R.id.water_add, actionPendingIntent(context, ACTION_ADD, id * 2 + 1))
+        views.setOnClickPendingIntent(R.id.water_remove, actionPendingIntent(context, ACTION_REMOVE, id * 2 + 2))
+        val open = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openPending = PendingIntent.getActivity(
+            context, id + 800, open,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.water_widget_root, openPending)
+        manager.updateAppWidget(id, views)
     }
 
     private fun actionPendingIntent(context: Context, action: String, requestCode: Int): PendingIntent {
