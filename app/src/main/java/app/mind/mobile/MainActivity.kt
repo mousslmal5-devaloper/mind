@@ -255,7 +255,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     }
 
     LaunchedEffect(activeUid, stateLoaded) {
-        if (stateLoaded) sendPomodoroCommand(PomodoroService.ACTION_SYNC, null, null, null)
+        if (stateLoaded) sendPomodoroCommand(PomodoroService.ACTION_SYNC, focusSeconds, focusMode, focusDurationMinutes)
     }
 
     LaunchedEffect(activeUid, accountReloadVersion) {
