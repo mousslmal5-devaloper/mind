@@ -1,6 +1,8 @@
 package app.mind.mobile
 
 import android.os.Bundle
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -74,6 +76,30 @@ private val Glass: Color @Composable get() = LocalMindPalette.current.glass
 private val GlassBorder: Color @Composable get() = LocalMindPalette.current.glassBorder
 private val Ink = Color(0xFF0D0D0F)
 private fun mindDateKey(timestamp: Long): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(timestamp))
+
+private fun refreshMindWaterWidget(context: Context) {
+    val component = ComponentName(context, WaterWidget::class.java)
+    val ids = AppWidgetManager.getInstance(context).getAppWidgetIds(component)
+    if (ids.isNotEmpty()) {
+        context.sendBroadcast(
+            Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                .setComponent(component)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        )
+    }
+}
+
+private fun refreshMindHabitWidget(context: Context) {
+    val component = ComponentName(context, HabitWidget::class.java)
+    val ids = AppWidgetManager.getInstance(context).getAppWidgetIds(component)
+    if (ids.isNotEmpty()) {
+        context.sendBroadcast(
+            Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                .setComponent(component)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        )
+    }
+}
 
 private val CairoFamily = androidx.compose.ui.text.font.FontFamily(
     androidx.compose.ui.text.font.Font(R.font.cairo_variable, weight = FontWeight.Normal)
@@ -364,6 +390,13 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                 )
             }.onFailure { Log.e("MIND", "Unable to persist local app data", it) }
         }
+    }
+
+    LaunchedEffect(activeUid, stateLoaded, water, waterGoal, waterEntries) {
+        if (stateLoaded) refreshMindWaterWidget(context)
+    }
+    LaunchedEffect(activeUid, stateLoaded, habitMask, habitNames, habitHistory) {
+        if (stateLoaded) refreshMindHabitWidget(context)
     }
     val habits = remember(habitNames) { habitNames.split("|").filter { it.isNotBlank() } }
     val toggleHabit: (Int) -> Unit = { index ->
