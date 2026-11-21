@@ -30,6 +30,7 @@ class PomodoroService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val currentUid = verifiedUid()
+        startForeground(NOTIFICATION_ID, buildNotification(currentRemaining()))
         ownerUid = intent?.getStringExtra(EXTRA_UID) ?: currentUid
         if (ownerUid != currentUid) { stopSelf(startId); return START_NOT_STICKY }
         val action = intent?.action ?: ACTION_SYNC
