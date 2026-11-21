@@ -182,6 +182,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     var waterGoal by rememberSaveable { mutableIntStateOf(8) }
     var waterEntries by remember { mutableStateOf<List<WaterEntry>>(emptyList()) }
     var steps by rememberSaveable { mutableIntStateOf(0) }
+    var stepGoal by rememberSaveable { mutableIntStateOf(10_000) }
     var stepSensorAvailable by rememberSaveable { mutableStateOf(false) }
     var stepEntries by remember { mutableStateOf<List<StepEntry>>(emptyList()) }
     var habitHistory by remember { mutableStateOf<List<HabitDayRecord>>(emptyList()) }
@@ -307,6 +308,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
         water = if (saved.waterEntries.isEmpty()) saved.water
             else saved.waterEntries.count { it.recordedAt >= todayStart }.coerceAtMost(40)
         waterGoal = saved.waterGoal
+        stepGoal = saved.stepGoal
         val todayKey = mindDateKey(System.currentTimeMillis())
         stepEntries = if (saved.stepSensorInitialized) saved.stepEntries else emptyList()
         steps = if (saved.stepSensorInitialized) stepEntries.filter { mindDateKey(it.recordedAt) == todayKey }.sumOf { it.delta }.coerceIn(0, 100000) else 0
@@ -353,7 +355,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     }
 
     LaunchedEffect(
-        activeUid, loadedStorageKey, stateLoaded, water, waterGoal, waterEntries, steps, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
+        activeUid, loadedStorageKey, stateLoaded, water, waterGoal, waterEntries, steps, stepGoal, studyMinutes, sleepHours, sleepSessions, activeSleepStartedAt,
         habitMask, habitNames, habitHistory, stepEntries, noteText, focusSeconds, focusMode, uiLanguage, uiAppearance,
         focusDurationMinutes, studySessions, workoutSessions, foodEntries, journalEntries
     ) {
@@ -366,6 +368,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                         waterGoal = waterGoal,
                         waterEntries = waterEntries,
                         steps = steps,
+                        stepGoal = stepGoal,
                         stepEntries = stepEntries,
                         stepSensorInitialized = true,
                         habitHistory = habitHistory,
@@ -539,7 +542,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                     onAdd = { text -> journalEntries = (journalEntries + JournalEntry(System.currentTimeMillis(), text)).takeLast(20000) },
                                     onDelete = { entry -> journalEntries = journalEntries.filterNot { it.recordedAt == entry.recordedAt } }
                                 )
-                                "fitness" -> FitnessScreen(steps, stepSensorAvailable, workoutSessions, userId = activeUid, onOpenFood = { page = "food" }, onSessionCompleted = { session ->
+                                "fitness" -> FitnessScreen(steps, stepGoal, stepSensorAvailable, workoutSessions, userId = activeUid, onOpenFood = { page = "food" }, onSessionCompleted = { session ->
                                     workoutSessions = (workoutSessions.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000)
                                 }, onDeleteSession = { session ->
                                     workoutSessions = workoutSessions.filterNot { it.startedAt == session.startedAt }
@@ -566,6 +569,8 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                 "settings", "me" -> SettingsScreen(
                                     language = uiLanguage,
                                     appearance = uiAppearance,
+                                    stepGoal = stepGoal,
+                                    onStepGoal = { stepGoal = it.coerceIn(1_000, 100_000) },
                                     userId = activeUid,
                                     importBusy = legacyImportBusy,
                                     importMessage = legacyImportMessage,
@@ -588,7 +593,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                                     val snapshot = CloudSyncCodec.fromLocal(
                                                         MindSavedState(
                                                             water = water, waterGoal = waterGoal, waterEntries = waterEntries,
-                                                            steps = steps, stepEntries = stepEntries, habitHistory = habitHistory,
+                                                            steps = steps, stepGoal = stepGoal, stepEntries = stepEntries, habitHistory = habitHistory,
                                                             studyMinutes = studyMinutes, sleepHours = sleepHours,
                                                             sleepSessions = sleepSessions, habitNames = habitNames,
                                                             noteText = noteText, focusMode = focusMode,
@@ -696,6 +701,7 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
                                                         focusDurationMinutes = restored.focusDurationMinutes
                                                         studySessions = restored.studySessions
                                                         workoutSessions = restored.workoutSessions
+                                                        stepGoal = restored.stepGoal
                                                         foodEntries = restored.foodEntries
                                                         journalEntries = restored.journalEntries
                                                         pendingCloudRestore = null
@@ -1275,7 +1281,7 @@ private fun StudyScreen(
 }
 
 @Composable
-private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, userId: String?, onOpenFood: () -> Unit, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
+private fun FitnessScreen(steps: Int, stepGoal: Int, sensorAvailable: Boolean, sessions: List<WorkoutSession>, userId: String?, onOpenFood: () -> Unit, onSessionCompleted: (WorkoutSession) -> Unit, onDeleteSession: (WorkoutSession) -> Unit, onRefreshSessions: () -> Unit) {
     val context = LocalContext.current
     val english = LocalMindLanguage.current == "en"
     var workoutType by rememberSaveable { mutableStateOf(mindString(english, "جري", "Run")) }
@@ -1374,6 +1380,8 @@ private fun FitnessScreen(steps: Int, sensorAvailable: Boolean, sessions: List<W
             GlassCard {
                 Text(mindString(english, "خطوات اليوم", "Today's steps"), color = Gold, fontWeight = FontWeight.Bold)
                 Text(steps.toString(), color = Gold, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                Text(mindString(english, "من هدف يومي قدره $stepGoal خطوة", "$stepGoal-step daily goal"), color = Muted, fontSize = 12.sp)
+                LinearProgressIndicator(progress = { (steps.toFloat() / stepGoal.coerceAtLeast(1)).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = Gold)
                 Text(if (sensorAvailable) mindString(english, "تُقاس تلقائياً من مستشعر الخطوات", "Measured automatically by the step sensor") else mindString(english, "مستشعر الخطوات غير متاح حالياً", "Step sensor is currently unavailable"), color = Muted, fontSize = 12.sp)
             }
         }
@@ -1667,6 +1675,8 @@ private fun NotesScreen(value: String, onValue: (String) -> Unit) {
 private fun SettingsScreen(
     language: String,
     appearance: String,
+    stepGoal: Int,
+    onStepGoal: (Int) -> Unit,
     userId: String?,
     importBusy: Boolean,
     importMessage: String?,
@@ -1702,6 +1712,7 @@ private fun SettingsScreen(
                 }
             }
         }
+        StepGoalSettingsCard(stepGoal = stepGoal, english = english, onStepGoal = onStepGoal)
         GlassCard {
             Text(if (english) "Language" else "اللغة", fontWeight = FontWeight.Bold, color = Gold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
