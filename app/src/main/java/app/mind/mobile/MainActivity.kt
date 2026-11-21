@@ -89,6 +89,18 @@ private fun refreshMindWaterWidget(context: Context) {
     }
 }
 
+private fun refreshMindStepWidget(context: Context) {
+    val component = ComponentName(context, StepWidget::class.java)
+    val ids = AppWidgetManager.getInstance(context).getAppWidgetIds(component)
+    if (ids.isNotEmpty()) {
+        context.sendBroadcast(
+            Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                .setComponent(component)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        )
+    }
+}
+
 private fun refreshMindHabitWidget(context: Context) {
     val component = ComponentName(context, HabitWidget::class.java)
     val ids = AppWidgetManager.getInstance(context).getAppWidgetIds(component)
@@ -400,6 +412,9 @@ private fun MindRoot(sensorSteps: Int, sensorSupported: Boolean, sensorDelta: In
     }
     LaunchedEffect(activeUid, stateLoaded, habitMask, habitNames, habitHistory) {
         if (stateLoaded) refreshMindHabitWidget(context)
+    }
+    LaunchedEffect(activeUid, stateLoaded, steps, stepGoal, sensorRevision) {
+        if (stateLoaded) refreshMindStepWidget(context)
     }
     val habits = remember(habitNames) { habitNames.split("|").filter { it.isNotBlank() } }
     val toggleHabit: (Int) -> Unit = { index ->
