@@ -1672,6 +1672,59 @@ private fun NotesScreen(value: String, onValue: (String) -> Unit) {
 }
 
 @Composable
+private fun StepGoalSettingsCard(stepGoal: Int, english: Boolean, onStepGoal: (Int) -> Unit) {
+    var dialogOpen by rememberSaveable { mutableStateOf(false) }
+    var input by rememberSaveable(stepGoal) { mutableStateOf(stepGoal.toString()) }
+    val parsed = input.toIntOrNull()
+    val valid = parsed != null && parsed in 1_000..100_000
+
+    GlassCard {
+        Text(if (english) "Daily goals" else "الأهداف اليومية", fontWeight = FontWeight.Bold, color = Gold)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(if (english) "Daily step goal" else "هدف الخطوات اليومي", fontWeight = FontWeight.SemiBold)
+                Text(if (english) "$stepGoal steps" else "$stepGoal خطوة", color = Muted, fontSize = 12.sp)
+            }
+            OutlinedButton(onClick = {
+                input = stepGoal.toString()
+                dialogOpen = true
+            }) { Text(if (english) "Edit" else "تعديل") }
+        }
+    }
+
+    if (dialogOpen) {
+        AlertDialog(
+            onDismissRequest = { dialogOpen = false },
+            title = { Text(if (english) "Daily step goal" else "هدف الخطوات اليومي") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it.filter(Char::isDigit).take(6) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text(if (english) "Steps (1,000–100,000)" else "الخطوات (1,000–100,000)") },
+                        isError = input.isNotBlank() && !valid
+                    )
+                    if (input.isNotBlank() && !valid) {
+                        Text(if (english) "Enter a value from 1,000 to 100,000." else "أدخل قيمة من 1,000 إلى 100,000.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = valid, onClick = {
+                    onStepGoal(parsed!!)
+                    dialogOpen = false
+                }) { Text(if (english) "Save" else "حفظ") }
+            },
+            dismissButton = {
+                TextButton(onClick = { dialogOpen = false }) { Text(if (english) "Cancel" else "إلغاء") }
+            }
+        )
+    }
+}
+
+@Composable
 private fun SettingsScreen(
     language: String,
     appearance: String,
