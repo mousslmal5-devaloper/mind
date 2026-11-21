@@ -1,0 +1,532 @@
+package app.mind.mobile
+
+import android.content.Context
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import org.json.JSONArray
+import org.json.JSONObject
+import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import java.util.concurrent.ConcurrentHashMap
+
+private val Context.mindDataStore by preferencesDataStore(name = "mind_local_data")
+
+/** One DataStore instance per Firebase UID; the legacy store remains untouched for explicit import. */
+private object MindUserDataStores {
+    private val stores = ConcurrentHashMap<String, DataStore<Preferences>>()
+
+    fun get(context: Context, uid: String): DataStore<Preferences> {
+        val fileName = MindStorageIdentity.dataStoreFileName(uid)
+        return stores.computeIfAbsent(fileName) {
+            PreferenceDataStoreFactory.create(
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                produceFile = { context.applicationContext.preferencesDataStoreFile(fileName.removeSuffix(".preferences_pb")) }
+            )
+        }
+    }
+}
+
+private fun mindDataStore(context: Context, uid: String?): DataStore<Preferences> =
+    if (uid.isNullOrBlank()) context.mindDataStore else MindUserDataStores.get(context.applicationContext, uid)
+
+data class StudySession(val completedAt: Long, val durationMinutes: Int)
+data class WaterEntry(val recordedAt: Long)
+data class StepEntry(val recordedAt: Long, val delta: Int)
+data class HabitDayRecord(val dateKey: String, val completedMask: Int, val habitCount: Int)
+data class SleepSession(val startedAt: Long, val endedAt: Long) { val durationMinutes: Int get() = ((endedAt - startedAt) / 60000L).toInt() }
+data class WorkoutSession(val startedAt: Long, val endedAt: Long, val type: String, val distanceMeters: Float, val durationSeconds: Long) { val distanceKm: Float get() = distanceMeters / 1000f }
+data class FoodEntry(val recordedAt: Long, val calories: Double)
+data class JournalEntry(val recordedAt: Long, val text: String)
+
+data class MindSavedState(
+    val water: Int = 0,
+    val waterGoal: Int = 8,
+    val waterEntries: List<WaterEntry> = emptyList(),
+    val steps: Int = 0,
+    val stepGoal: Int = 10_000,
+    val studyMinutes: Int = 0,
+    val sleepHours: Float = 0f,
+    val sleepSessions: List<SleepSession> = emptyList(),
+    val activeSleepStartedAt: Long = 0L,
+    val habitMask: Int = 0,
+    val habitNames: String = "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم",
+    val noteText: String = "",
+    val focusSeconds: Int = 25 * 60,
+    val focusMode: String = "تركيز",
+    val focusDurationMinutes: Int = 25,
+    val studySessions: List<StudySession> = emptyList(),
+    val stepEntries: List<StepEntry> = emptyList(),
+    val habitHistory: List<HabitDayRecord> = emptyList(),
+    val stepSensorInitialized: Boolean = false,
+    val workoutSessions: List<WorkoutSession> = emptyList(),
+    val foodEntries: List<FoodEntry> = emptyList(),
+    val journalEntries: List<JournalEntry> = emptyList(),
+    val uiLanguage: String = "ar",
+    val uiAppearance: String = "dark"
+)
+
+private object MindPreferenceKeys {
+    val water = intPreferencesKey("water")
+    val waterGoal = intPreferencesKey("water_goal")
+    val steps = intPreferencesKey("steps")
+    val stepGoal = intPreferencesKey("step_goal")
+    val studyMinutes = intPreferencesKey("study_minutes")
+    val sleepHours = floatPreferencesKey("sleep_hours")
+    val habitMask = intPreferencesKey("habit_mask")
+    val habitNames = stringPreferencesKey("habit_names")
+    val noteText = stringPreferencesKey("note_text")
+    val focusSeconds = intPreferencesKey("focus_seconds")
+    val focusMode = stringPreferencesKey("focus_mode")
+    val focusDurationMinutes = intPreferencesKey("focus_duration_minutes")
+    val studySessions = stringPreferencesKey("study_sessions")
+    val waterEntries = stringPreferencesKey("water_entries")
+    val sleepSessions = stringPreferencesKey("sleep_sessions")
+    val activeSleepStartedAt = longPreferencesKey("active_sleep_started_at")
+    val stepEntries = stringPreferencesKey("step_entries")
+    val habitHistory = stringPreferencesKey("habit_history")
+    val stepSensorInitialized = booleanPreferencesKey("step_sensor_initialized")
+    val workoutSessions = stringPreferencesKey("workout_sessions")
+    val foodEntries = stringPreferencesKey("food_entries")
+    val journalEntries = stringPreferencesKey("journal_entries")
+    val uiLanguage = stringPreferencesKey("ui_language")
+    val uiAppearance = stringPreferencesKey("ui_appearance")
+    val legacyImportOwnerHash = stringPreferencesKey("legacy_import_owner_hash")
+    val legacyImportStatus = stringPreferencesKey("legacy_import_status")
+}
+
+suspend fun loadMindSavedState(context: Context, uid: String? = null): MindSavedState {
+    val preferences = mindDataStore(context, uid).data.first()
+    // Language and appearance are device preferences, intentionally shared across accounts.
+    val uiPreferences = if (uid.isNullOrBlank()) preferences else context.mindDataStore.data.first()
+    return MindSavedState(
+        water = preferences[MindPreferenceKeys.water] ?: 0,
+        waterGoal = (preferences[MindPreferenceKeys.waterGoal] ?: 8).coerceIn(1, 20),
+        steps = (preferences[MindPreferenceKeys.steps] ?: 0).coerceIn(0, 100_000),
+        stepGoal = (preferences[MindPreferenceKeys.stepGoal] ?: 10_000).coerceIn(1_000, 100_000),
+        studyMinutes = (preferences[MindPreferenceKeys.studyMinutes] ?: 0).coerceAtLeast(0),
+        sleepHours = (preferences[MindPreferenceKeys.sleepHours] ?: 0f).coerceIn(0f, 16f),
+        sleepSessions = decodeSleepSessions(preferences[MindPreferenceKeys.sleepSessions] ?: "[]"),
+        activeSleepStartedAt = (preferences[MindPreferenceKeys.activeSleepStartedAt] ?: 0L).coerceAtLeast(0L),
+        habitMask = (preferences[MindPreferenceKeys.habitMask] ?: 0).coerceAtLeast(0),
+        habitNames = preferences[MindPreferenceKeys.habitNames]
+            ?: "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم",
+        noteText = preferences[MindPreferenceKeys.noteText] ?: "",
+        focusSeconds = (preferences[MindPreferenceKeys.focusSeconds] ?: 25 * 60).coerceAtLeast(0),
+        focusMode = preferences[MindPreferenceKeys.focusMode]
+            ?.takeIf { it == "تركيز" || it == "استراحة" } ?: "تركيز",
+        focusDurationMinutes = (preferences[MindPreferenceKeys.focusDurationMinutes] ?: 25).coerceIn(1, 180),
+        studySessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]"),
+        waterEntries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]"),
+        stepEntries = decodeStepEntries(preferences[MindPreferenceKeys.stepEntries] ?: "[]"),
+        habitHistory = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]"),
+        stepSensorInitialized = preferences[MindPreferenceKeys.stepSensorInitialized] ?: false,
+        workoutSessions = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]"),
+        foodEntries = decodeFoodEntries(preferences[MindPreferenceKeys.foodEntries] ?: "[]"),
+        journalEntries = decodeJournalEntries(preferences[MindPreferenceKeys.journalEntries] ?: "[]"),
+        uiLanguage = uiPreferences[MindPreferenceKeys.uiLanguage]?.takeIf { it == "ar" || it == "en" } ?: "ar",
+        uiAppearance = uiPreferences[MindPreferenceKeys.uiAppearance]?.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
+    )
+}
+
+/**
+ * Atomically changes today's water count from a home-screen widget.
+ * The same account-scoped DataStore and timestamp history are used by the app UI.
+ */
+suspend fun changeMindWaterFromWidget(context: Context, uid: String?, delta: Int): Int {
+    require(delta == 1 || delta == -1) { "Water widget delta must be +1 or -1" }
+    var result = 0
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
+        val entries = decodeWaterEntries(preferences[MindPreferenceKeys.waterEntries] ?: "[]").toMutableList()
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayCount = entries.count { it.recordedAt >= todayStart }
+        if (delta > 0 && todayCount < 40) {
+            entries += WaterEntry(System.currentTimeMillis())
+        } else if (delta < 0 && todayCount > 0) {
+            val lastToday = entries.indexOfLast { it.recordedAt >= todayStart }
+            if (lastToday >= 0) entries.removeAt(lastToday)
+        }
+        result = entries.count { it.recordedAt >= todayStart }.coerceIn(0, 40)
+        preferences[MindPreferenceKeys.water] = result
+        preferences[MindPreferenceKeys.waterEntries] = encodeWaterEntries(entries.takeLast(20000))
+    }
+    return result
+}
+
+suspend fun toggleMindHabitFromWidget(context: Context, uid: String?, index: Int): Pair<Int, List<String>> {
+    require(index in 0 until 20) { "Habit index is out of range" }
+    var resultMask = 0
+    var names = emptyList<String>()
+    val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
+        names = (preferences[MindPreferenceKeys.habitNames] ?: "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم")
+            .split("|").filter { it.isNotBlank() }.take(20)
+        if (index >= names.size) return@edit
+        val history = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]").toMutableList()
+        val previous = history.lastOrNull { it.dateKey == today }
+        val mask = (previous?.completedMask ?: preferences[MindPreferenceKeys.habitMask] ?: 0)
+            .coerceAtLeast(0)
+        resultMask = mask xor (1 shl index)
+        history.removeAll { it.dateKey == today }
+        history += HabitDayRecord(today, resultMask, names.size)
+        preferences[MindPreferenceKeys.habitMask] = resultMask
+        preferences[MindPreferenceKeys.habitHistory] = encodeHabitHistory(history.takeLast(730))
+    }
+    return resultMask to names
+}
+
+suspend fun readMindHabitsForWidget(context: Context, uid: String?): Pair<Int, List<String>> {
+    val preferences = mindDataStore(context.applicationContext, uid).data.first()
+    val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+    val names = (preferences[MindPreferenceKeys.habitNames] ?: "الاستيقاظ مبكراً|قراءة|الرياضة|التعلم")
+        .split("|").filter { it.isNotBlank() }.take(20)
+    val history = decodeHabitHistory(preferences[MindPreferenceKeys.habitHistory] ?: "[]")
+    val mask = history.lastOrNull { it.dateKey == today }?.completedMask
+        ?: (preferences[MindPreferenceKeys.habitMask] ?: 0)
+    return mask to names
+}
+
+suspend fun readMindStepsGoalForWidget(context: Context, uid: String?): Int =
+    loadMindSavedState(context.applicationContext, uid).stepGoal.coerceIn(1_000, 100_000)
+
+suspend fun readMindWaterForWidget(context: Context, uid: String?): Pair<Int, Int> {
+    val state = loadMindSavedState(context.applicationContext, uid)
+    val todayStart = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.HOUR_OF_DAY, 0)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val count = if (state.waterEntries.isEmpty()) state.water.coerceIn(0, 40)
+        else state.waterEntries.count { it.recordedAt >= todayStart }.coerceIn(0, 40)
+    return count to state.waterGoal.coerceIn(1, 20)
+}
+
+suspend fun saveMindSavedState(context: Context, state: MindSavedState, uid: String? = null) {
+    mindDataStore(context, uid).edit { preferences ->
+        preferences[MindPreferenceKeys.water] = state.water.coerceIn(0, 40)
+        preferences[MindPreferenceKeys.waterGoal] = state.waterGoal.coerceIn(1, 20)
+        preferences[MindPreferenceKeys.steps] = state.steps.coerceIn(0, 100_000)
+        preferences[MindPreferenceKeys.stepGoal] = state.stepGoal.coerceIn(1_000, 100_000)
+        preferences[MindPreferenceKeys.studyMinutes] = state.studyMinutes.coerceAtLeast(0)
+        preferences[MindPreferenceKeys.sleepHours] = state.sleepHours.coerceIn(0f, 16f)
+        preferences[MindPreferenceKeys.sleepSessions] = encodeSleepSessions(state.sleepSessions)
+        preferences[MindPreferenceKeys.activeSleepStartedAt] = state.activeSleepStartedAt.coerceAtLeast(0L)
+        preferences[MindPreferenceKeys.habitMask] = state.habitMask.coerceAtLeast(0)
+        preferences[MindPreferenceKeys.habitNames] = state.habitNames
+        preferences[MindPreferenceKeys.noteText] = state.noteText
+        preferences[MindPreferenceKeys.focusSeconds] = state.focusSeconds.coerceAtLeast(0)
+        preferences[MindPreferenceKeys.focusMode] =
+            if (state.focusMode == "استراحة") "استراحة" else "تركيز"
+        preferences[MindPreferenceKeys.focusDurationMinutes] = state.focusDurationMinutes.coerceIn(1, 180)
+        preferences[MindPreferenceKeys.studySessions] = encodeStudySessions(state.studySessions)
+        preferences[MindPreferenceKeys.waterEntries] = encodeWaterEntries(state.waterEntries)
+        preferences[MindPreferenceKeys.stepEntries] = encodeStepEntries(state.stepEntries)
+        preferences[MindPreferenceKeys.habitHistory] = encodeHabitHistory(state.habitHistory)
+        preferences[MindPreferenceKeys.stepSensorInitialized] = state.stepSensorInitialized
+        preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions(state.workoutSessions)
+        preferences[MindPreferenceKeys.foodEntries] = encodeFoodEntries(state.foodEntries)
+        preferences[MindPreferenceKeys.journalEntries] = encodeJournalEntries(state.journalEntries)
+    }
+}
+
+enum class LegacyMindImportResult {
+    Imported,
+    NoLegacyData,
+    AccountAlreadyHasData,
+    AlreadyImported,
+    OwnedByAnotherAccount,
+    Failed
+}
+
+private fun MindSavedState.hasImportableLegacyData(): Boolean =
+    water > 0 || waterEntries.isNotEmpty() || stepEntries.isNotEmpty() || stepGoal != 10_000 ||
+        studyMinutes > 0 || studySessions.isNotEmpty() ||
+        sleepHours > 0f || sleepSessions.isNotEmpty() ||
+        habitHistory.isNotEmpty() || habitMask != 0 ||
+        noteText.isNotBlank() || focusSeconds != 25 * 60 ||
+        focusMode != "تركيز" || focusDurationMinutes != 25 ||
+        workoutSessions.isNotEmpty() || foodEntries.isNotEmpty() ||
+        journalEntries.isNotEmpty()
+
+/**
+ * Imports legacy device data only after an explicit user action.
+ * A pending claim can be retried by the same UID after process death; another UID
+ * can never claim the same legacy store. Existing account content is never overwritten.
+ */
+suspend fun importLegacyMindData(context: Context, uid: String): LegacyMindImportResult {
+    if (uid.isBlank() || uid != uid.trim()) return LegacyMindImportResult.Failed
+    val authenticatedUid = runCatching {
+        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            ?.takeIf { it.isEmailVerified }?.uid
+    }.getOrNull()
+    if (authenticatedUid != uid) return LegacyMindImportResult.Failed
+    val appContext = context.applicationContext
+    val legacyStore = appContext.mindDataStore
+    val legacyState = runCatching { loadMindSavedState(appContext, null) }.getOrElse {
+        return LegacyMindImportResult.Failed
+    }
+    if (!legacyState.hasImportableLegacyData()) return LegacyMindImportResult.NoLegacyData
+
+    val ownerHash = MindStorageIdentity.accountKey(uid)
+    val initial = runCatching { legacyStore.data.first() }.getOrElse {
+        return LegacyMindImportResult.Failed
+    }
+    val recordedOwner = initial[MindPreferenceKeys.legacyImportOwnerHash]
+    val status = initial[MindPreferenceKeys.legacyImportStatus]
+    if (recordedOwner != null && recordedOwner != ownerHash) {
+        return LegacyMindImportResult.OwnedByAnotherAccount
+    }
+    if (recordedOwner == ownerHash && status == "complete") {
+        return LegacyMindImportResult.AlreadyImported
+    }
+
+    if (recordedOwner == null) {
+        val accountState = runCatching { loadMindSavedState(appContext, uid) }.getOrElse {
+            return LegacyMindImportResult.Failed
+        }
+        if (accountState.hasImportableLegacyData()) {
+            return LegacyMindImportResult.AccountAlreadyHasData
+        }
+        var claimAccepted = false
+        runCatching {
+            legacyStore.edit { preferences ->
+                val currentOwner = preferences[MindPreferenceKeys.legacyImportOwnerHash]
+                if (currentOwner == null) {
+                    preferences[MindPreferenceKeys.legacyImportOwnerHash] = ownerHash
+                    preferences[MindPreferenceKeys.legacyImportStatus] = "pending"
+                    claimAccepted = true
+                } else if (currentOwner == ownerHash) {
+                    claimAccepted = true
+                }
+            }
+        }.onFailure { return LegacyMindImportResult.Failed }
+        if (!claimAccepted) {
+            val latestOwner = runCatching { legacyStore.data.first()[MindPreferenceKeys.legacyImportOwnerHash] }.getOrNull()
+            return if (latestOwner == ownerHash) LegacyMindImportResult.Failed
+                else LegacyMindImportResult.OwnedByAnotherAccount
+        }
+    }
+
+    return runCatching {
+        val safeState = legacyState.copy(
+            activeSleepStartedAt = 0L,
+            steps = 0,
+            stepSensorInitialized = legacyState.stepEntries.isNotEmpty()
+        )
+        saveMindSavedState(appContext, safeState, uid)
+        legacyStore.edit { preferences ->
+            check(preferences[MindPreferenceKeys.legacyImportOwnerHash] == ownerHash) {
+                "Legacy data ownership changed during import"
+            }
+            preferences[MindPreferenceKeys.legacyImportStatus] = "complete"
+        }
+        LegacyMindImportResult.Imported
+    }.getOrElse { LegacyMindImportResult.Failed }
+}
+
+/**
+ * Writes a private, durable pre-restore copy before cloud data can replace local state.
+ * The latest five restore backups are retained in app-internal storage.
+ */
+suspend fun createMindRestoreBackup(context: Context, uid: String, state: MindSavedState): java.io.File =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        require(uid.isNotBlank() && uid == uid.trim()) { "A valid account is required" }
+        val directory = java.io.File(context.applicationContext.filesDir, "restore-backups").apply {
+            check(exists() || mkdirs()) { "Unable to create restore backup directory" }
+        }
+        val accountKey = MindStorageIdentity.accountKey(uid)
+        val target = java.io.File(directory, "$accountKey-${System.currentTimeMillis()}.json")
+        val temporary = java.io.File(directory, "${target.name}.tmp")
+        try {
+            java.io.FileOutputStream(temporary).use { output ->
+                output.write(com.google.gson.Gson().toJson(state).toByteArray(Charsets.UTF_8))
+                output.fd.sync()
+            }
+            check(temporary.renameTo(target)) { "Unable to finalize local restore backup" }
+            directory.listFiles()
+                ?.filter { it.isFile && it.name.startsWith("$accountKey-") && it.name.endsWith(".json") }
+                ?.sortedByDescending { it.lastModified() }
+                ?.drop(5)
+                ?.forEach { old -> runCatching { old.delete() } }
+            target
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
+        }
+    }
+
+suspend fun saveMindUiSettings(context: Context, language: String, appearance: String) {
+    context.applicationContext.mindDataStore.edit { preferences ->
+        preferences[MindPreferenceKeys.uiLanguage] = if (language == "en") "en" else "ar"
+        preferences[MindPreferenceKeys.uiAppearance] = appearance.takeIf { it in setOf("dark", "light", "auto") } ?: "dark"
+    }
+}
+
+
+private fun encodeFoodEntries(entries: List<FoodEntry>): String = JSONArray().apply {
+    entries.takeLast(20000).forEach { put(JSONObject().put("recordedAt", it.recordedAt).put("calories", it.calories)) }
+}.toString()
+
+private fun decodeFoodEntries(raw: String): List<FoodEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("recordedAt", 0L)
+            val calories = item.optDouble("calories", Double.NaN)
+            if (timestamp > 0L && calories.isFinite() && calories > 0.0) add(FoodEntry(timestamp, calories))
+        }
+    }.takeLast(20000)
+}.getOrDefault(emptyList())
+
+private fun encodeJournalEntries(entries: List<JournalEntry>): String = JSONArray().apply {
+    entries.takeLast(20000).forEach { put(JSONObject().put("recordedAt", it.recordedAt).put("text", it.text)) }
+}.toString()
+
+private fun decodeJournalEntries(raw: String): List<JournalEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("recordedAt", 0L)
+            val text = item.optString("text", "").trim()
+            if (timestamp > 0L && text.isNotEmpty()) add(JournalEntry(timestamp, text))
+        }
+    }.takeLast(20000)
+}.getOrDefault(emptyList())
+
+private fun encodeStudySessions(sessions: List<StudySession>): String {
+    val array = JSONArray()
+    sessions.takeLast(5000).forEach { session ->
+        array.put(JSONObject().put("completedAt", session.completedAt)
+            .put("durationMinutes", session.durationMinutes.coerceIn(1, 180)))
+    }
+    return array.toString()
+}
+
+private fun decodeStudySessions(raw: String): List<StudySession> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("completedAt", 0L)
+            val minutes = item.optInt("durationMinutes", 0)
+            if (timestamp > 0L && minutes in 1..180) add(StudySession(timestamp, minutes))
+        }
+    }.takeLast(5000)
+}.getOrDefault(emptyList())
+
+private fun encodeStepEntries(entries: List<StepEntry>): String = JSONArray().apply {
+    entries.takeLast(30000).forEach { put(JSONObject().put("recordedAt", it.recordedAt).put("delta", it.delta)) }
+}.toString()
+
+private fun decodeStepEntries(raw: String): List<StepEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val timestamp = item.optLong("recordedAt", 0L)
+            val delta = item.optInt("delta", 0)
+            if (timestamp > 0L && delta in -100000..100000 && delta != 0) add(StepEntry(timestamp, delta))
+        }
+    }.takeLast(30000)
+}.getOrDefault(emptyList())
+
+private fun encodeHabitHistory(records: List<HabitDayRecord>): String = JSONArray().apply {
+    records.takeLast(730).forEach { put(JSONObject().put("dateKey", it.dateKey).put("completedMask", it.completedMask).put("habitCount", it.habitCount)) }
+}.toString()
+
+private fun decodeHabitHistory(raw: String): List<HabitDayRecord> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val date = item.optString("dateKey", "")
+            val mask = item.optInt("completedMask", -1)
+            val count = item.optInt("habitCount", 0)
+            if (date.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) && mask >= 0 && count in 0..20)
+                add(HabitDayRecord(date, mask, count))
+        }
+    }.distinctBy { it.dateKey }.takeLast(730)
+}.getOrDefault(emptyList())
+
+private fun encodeWaterEntries(entries: List<WaterEntry>): String = JSONArray().apply {
+    entries.takeLast(20000).forEach { put(it.recordedAt) }
+}.toString()
+
+private fun decodeWaterEntries(raw: String): List<WaterEntry> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val timestamp = array.optLong(index, 0L)
+            if (timestamp > 0L) add(WaterEntry(timestamp))
+        }
+    }.takeLast(20000)
+}.getOrDefault(emptyList())
+
+private fun encodeSleepSessions(sessions: List<SleepSession>): String = JSONArray().apply {
+    sessions.takeLast(2000).forEach { put(JSONObject().put("startedAt", it.startedAt).put("endedAt", it.endedAt)) }
+}.toString()
+
+private fun decodeSleepSessions(raw: String): List<SleepSession> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val start = item.optLong("startedAt", 0L)
+            val end = item.optLong("endedAt", 0L)
+            val duration = (end - start) / 60000L
+            if (start > 0L && end > start && duration in 1..960) add(SleepSession(start, end))
+        }
+    }.takeLast(2000)
+}.getOrDefault(emptyList())
+suspend fun appendWorkoutSession(context: Context, session: WorkoutSession, uid: String? = null) {
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
+        val existing = decodeWorkoutSessions(preferences[MindPreferenceKeys.workoutSessions] ?: "[]")
+        preferences[MindPreferenceKeys.workoutSessions] = encodeWorkoutSessions((existing.filterNot { it.startedAt == session.startedAt } + session).takeLast(2000))
+    }
+}
+
+private fun encodeWorkoutSessions(sessions: List<WorkoutSession>): String = JSONArray().apply {
+    sessions.takeLast(2000).forEach { session -> put(JSONObject().put("startedAt", session.startedAt).put("endedAt", session.endedAt).put("type", session.type).put("distanceMeters", session.distanceMeters.coerceIn(0f, 2000000f).toDouble()).put("durationSeconds", session.durationSeconds.coerceIn(1L, 172800L))) }
+}.toString()
+
+private fun decodeWorkoutSessions(raw: String): List<WorkoutSession> = runCatching {
+    val array = JSONArray(raw)
+    buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val start = item.optLong("startedAt", 0L); val end = item.optLong("endedAt", 0L)
+            val type = item.optString("type", ""); val distance = item.optDouble("distanceMeters", -1.0).toFloat()
+            val duration = item.optLong("durationSeconds", 0L)
+            if (start > 0L && end > start && type in setOf("مشي", "جري", "دراجة") && distance.isFinite() && distance in 0f..2000000f && duration in 1L..172800L) add(WorkoutSession(start, end, type, distance, duration))
+        }
+    }.distinctBy { it.startedAt }.takeLast(2000)
+}.getOrDefault(emptyList())
+
+/** Records a completed focus interval atomically, including when the app UI is closed. */
+suspend fun recordMindStudySession(context: Context, uid: String?, durationMinutes: Int, completedAt: Long) {
+    val duration = durationMinutes.coerceIn(1, 180)
+    mindDataStore(context.applicationContext, uid).edit { preferences ->
+        val sessions = decodeStudySessions(preferences[MindPreferenceKeys.studySessions] ?: "[]").toMutableList()
+        sessions += StudySession(completedAt, duration)
+        preferences[MindPreferenceKeys.studySessions] = encodeStudySessions(sessions.takeLast(5000))
+        preferences[MindPreferenceKeys.studyMinutes] = ((preferences[MindPreferenceKeys.studyMinutes] ?: 0) + duration).coerceAtLeast(0)
+    }
+}

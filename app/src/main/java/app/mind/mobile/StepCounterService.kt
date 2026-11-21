@@ -1,0 +1,156 @@
+package app.mind.mobile
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.Build
+import android.os.IBinder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class StepCounterService : Service(), SensorEventListener {
+    private lateinit var sensorManager: SensorManager
+    private var registered = false
+    private var ownerUid: String? = null
+    private var accountSuffix: String = ""
+
+    override fun onCreate() {
+        super.onCreate()
+        startAsForeground()
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        if (sensor == null) {
+            publish(false, 0, 0)
+            stopUnavailableService()
+            return
+        }
+        registered = sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+        if (!registered) {
+            publish(false, 0, 0)
+            stopUnavailableService()
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val requestedUid = intent?.getStringExtra(EXTRA_UID)
+        val currentUid = runCatching {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                ?.takeIf { it.isEmailVerified }?.uid
+        }.getOrNull()
+        val uid = requestedUid ?: currentUid
+        if (uid.isNullOrBlank() || uid != currentUid) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        ownerUid = uid
+        accountSuffix = MindStorageIdentity.accountKey(uid)
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getString(KEY_ACTIVE_ACCOUNT, null) != accountSuffix) {
+            // Do not attribute steps recorded while another account was active.
+            prefs.edit().putLong(key(KEY_RAW), -1L).putString(KEY_ACTIVE_ACCOUNT, accountSuffix).apply()
+        }
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(System.currentTimeMillis()))
+        if (prefs.getString(key(KEY_DAY), null) != today) {
+            prefs.edit().putString(key(KEY_DAY), today).putInt(key(KEY_DAILY), 0).putInt(key(KEY_SYNCED), 0).putLong(key(KEY_RAW), -1L).apply()
+        }
+        if (intent?.action == ACTION_ACK) {
+            if (intent.getStringExtra(EXTRA_UID) != ownerUid) return START_NOT_STICKY
+            prefs.edit().putInt(key(KEY_SYNCED), intent.getIntExtra(EXTRA_TOTAL, 0).coerceIn(0, 100000)).apply()
+        } else {
+            val total = prefs.getInt(key(KEY_DAILY), 0).coerceIn(0, 100000)
+            val synced = prefs.getInt(key(KEY_SYNCED), 0).coerceIn(0, 100000)
+            publish(registered, total, (total - synced).coerceAtLeast(0))
+        }
+        return START_STICKY
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type != Sensor.TYPE_STEP_COUNTER || event.values.isEmpty()) return
+        val raw = event.values[0].toLong().coerceAtLeast(0L)
+        val now = System.currentTimeMillis()
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(now))
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val snapshot = StepCounterSnapshot(
+            day = prefs.getString(key(KEY_DAY), null),
+            rawTotal = prefs.getLong(key(KEY_RAW), -1L),
+            dailyTotal = prefs.getInt(key(KEY_DAILY), 0),
+            syncedTotal = prefs.getInt(key(KEY_SYNCED), 0)
+        )
+        val update = recordStepReading(snapshot, today, raw)
+        prefs.edit()
+            .putString(key(KEY_DAY), update.snapshot.day)
+            .putLong(key(KEY_RAW), update.snapshot.rawTotal)
+            .putInt(key(KEY_DAILY), update.snapshot.dailyTotal)
+            .putInt(key(KEY_SYNCED), update.snapshot.syncedTotal)
+            .apply()
+        val unsynced = (update.snapshot.dailyTotal - update.snapshot.syncedTotal).coerceAtLeast(0)
+        publish(true, update.snapshot.dailyTotal, unsynced)
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    private fun stopUnavailableService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf()
+    }
+
+    private fun key(base: String): String = "${base}_$accountSuffix"
+
+    private fun publish(supported: Boolean, total: Int, delta: Int) {
+        sendBroadcast(Intent(ACTION_STEP_UPDATE).setPackage(packageName)
+            .putExtra(EXTRA_UID, ownerUid).putExtra(EXTRA_SUPPORTED, supported).putExtra(EXTRA_TOTAL, total)
+            .putExtra(EXTRA_DELTA, delta).putExtra(EXTRA_AT, System.currentTimeMillis()))
+    }
+
+    private fun startAsForeground() {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "عداد خطوات MIND", NotificationManager.IMPORTANCE_LOW))
+        }
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL_ID)
+            else Notification.Builder(this)
+        val notification = builder.setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setContentTitle("MIND · عداد الخطوات")
+            .setContentText("يتم احتساب خطواتك تلقائياً من مستشعر الهاتف")
+            .setOngoing(true).build()
+        startForeground(NOTIFICATION_ID, notification)
+    }
+
+    override fun onDestroy() {
+        if (::sensorManager.isInitialized && registered) sensorManager.unregisterListener(this)
+        super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    companion object {
+        const val ACTION_STEP_UPDATE = "app.mind.mobile.STEP_UPDATE"
+        const val ACTION_ACK = "app.mind.mobile.STEP_ACK"
+        const val EXTRA_SUPPORTED = "supported"
+        const val EXTRA_TOTAL = "total"
+        const val EXTRA_DELTA = "delta"
+        const val EXTRA_AT = "at"
+        const val EXTRA_UID = "owner_uid"
+        private const val PREFS = "mind_step_sensor"
+        private const val KEY_DAY = "day"
+        private const val KEY_RAW = "raw_total"
+        private const val KEY_DAILY = "daily_total"
+        private const val KEY_SYNCED = "synced_total"
+        private const val KEY_ACTIVE_ACCOUNT = "active_account_key"
+        private const val CHANNEL_ID = "mind_step_counter"
+        private const val NOTIFICATION_ID = 2601
+    }
+}
