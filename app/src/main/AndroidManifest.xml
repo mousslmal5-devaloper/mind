@@ -17,6 +17,14 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_clock_info" />
         </receiver>
+        <receiver android:name=".WaterWidget" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.mind.mobile.action.WATER_ADD" />
+                <action android:name="app.mind.mobile.action.WATER_REMOVE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_water_info" />
+        </receiver>
         <receiver android:name=".StepCounterBootReceiver" android:enabled="true" android:exported="false">
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.TIME_SET"/><action android:name="android.intent.action.TIMEZONE_CHANGED"/></intent-filter>
         </receiver>
