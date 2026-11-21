@@ -36,7 +36,7 @@ class HabitWidget : AppWidgetProvider() {
         render(context, manager, ids)
     }
 
-    private fun renderAll(context: Context) {
+    private suspend fun renderAll(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, HabitWidget::class.java))
         if (ids.isEmpty()) return
