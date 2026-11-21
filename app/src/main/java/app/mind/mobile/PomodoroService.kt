@@ -35,13 +35,21 @@ class PomodoroService : Service() {
         if (ownerUid != currentUid) { stopSelf(startId); return START_NOT_STICKY }
         val action = intent?.action ?: ACTION_SYNC
         val prefs = timerPrefs()
+        if (!prefs.getBoolean(KEY_INITIALIZED, false)) {
+            val initialMode = intent?.getStringExtra(EXTRA_MODE)?.takeIf { it == "تركيز" || it == "استراحة" } ?: "تركيز"
+            val initialDuration = (intent?.getIntExtra(EXTRA_DURATION, 25) ?: 25).coerceIn(1, 180)
+            val initialSeconds = (intent?.getIntExtra(EXTRA_SECONDS, if (initialMode == "تركيز") initialDuration * 60 else 300)
+                ?: if (initialMode == "تركيز") initialDuration * 60 else 300).coerceAtLeast(1)
+            prefs.edit().putBoolean(KEY_INITIALIZED, true).putString(KEY_MODE, initialMode)
+                .putInt(KEY_DURATION, initialDuration).putInt(KEY_REMAINING, initialSeconds).apply()
+        }
         when (action) {
             ACTION_START -> {
                 val remaining = (intent?.getIntExtra(EXTRA_SECONDS, currentRemaining()) ?: currentRemaining()).coerceAtLeast(1)
                 prefs.edit().putInt(KEY_REMAINING, remaining).putLong(KEY_END_AT, System.currentTimeMillis() + remaining * 1000L)
                     .putBoolean(KEY_RUNNING, true).putString(KEY_MODE, intent?.getStringExtra(EXTRA_MODE) ?: prefs.getString(KEY_MODE, "تركيز"))
                     .putInt(KEY_DURATION, intent?.getIntExtra(EXTRA_DURATION, prefs.getInt(KEY_DURATION, 25)) ?: 25)
-                    .putString(KEY_UID, ownerUid ?: "").apply()
+                    .putString(KEY_UID, ownerUid ?: "").putBoolean(KEY_INITIALIZED, true).apply()
             }
             ACTION_PAUSE -> pauseTimer()
             ACTION_RESET -> {
@@ -174,7 +182,7 @@ class PomodoroService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
         else { @Suppress("DEPRECATION") stopForeground(true) }
     }
-    private fun timerPrefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun timerPrefs() = getSharedPreferences(PREFS + "_" + (ownerUid?.let { MindStorageIdentity.accountKey(it) } ?: "local"), Context.MODE_PRIVATE)
     private fun verifiedUid(): String? = runCatching { FirebaseAuth.getInstance().currentUser?.takeIf { it.isEmailVerified }?.uid }.getOrNull()
     private fun pendingFlags() = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
 
@@ -189,7 +197,7 @@ class PomodoroService : Service() {
         const val ACTION_RESET = "app.mind.mobile.POMODORO_RESET"; const val ACTION_MODE = "app.mind.mobile.POMODORO_MODE"
         const val ACTION_PRESET = "app.mind.mobile.POMODORO_PRESET"; const val ACTION_ADD = "app.mind.mobile.POMODORO_ADD"
         const val ACTION_TOGGLE = "app.mind.mobile.POMODORO_TOGGLE"; const val ACTION_SYNC = "app.mind.mobile.POMODORO_SYNC"
-        private const val PREFS = "mind_pomodoro_timer"; private const val KEY_REMAINING = "remaining"; private const val KEY_END_AT = "end_at"
+        private const val PREFS = "mind_pomodoro_timer"; private const val KEY_INITIALIZED = "initialized"; private const val KEY_REMAINING = "remaining"; private const val KEY_END_AT = "end_at"
         private const val KEY_RUNNING = "running"; private const val KEY_MODE = "mode"; private const val KEY_DURATION = "duration"
         private const val CHANNEL_ID = "mind_pomodoro"; private const val NOTIFICATION_ID = 2602; private const val TAG = "MIND_POMODORO"
     }
