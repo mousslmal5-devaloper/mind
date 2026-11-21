@@ -201,6 +201,9 @@ suspend fun readMindHabitsForWidget(context: Context, uid: String?): Pair<Int, L
     return mask to names
 }
 
+suspend fun readMindStepsGoalForWidget(context: Context, uid: String?): Int =
+    loadMindSavedState(context.applicationContext, uid).stepGoal.coerceIn(1_000, 100_000)
+
 suspend fun readMindWaterForWidget(context: Context, uid: String?): Pair<Int, Int> {
     val state = loadMindSavedState(context.applicationContext, uid)
     val todayStart = java.util.Calendar.getInstance().apply {
