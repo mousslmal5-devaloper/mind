@@ -15,6 +15,7 @@ class CloudSyncCodecTest {
             waterGoal = 9,
             waterEntries = listOf(WaterEntry(100L), WaterEntry(200L)),
             steps = 8_500,
+            stepGoal = 12_500,
             stepEntries = listOf(StepEntry(300L, 120)),
             stepSensorInitialized = true,
             activeSleepStartedAt = 999L,
@@ -31,6 +32,7 @@ class CloudSyncCodecTest {
 
         assertEquals(7L, restored.revision)
         assertEquals(9, restored.waterGoal)
+        assertEquals(12_500, restored.stepGoal)
         assertEquals(local.waterEntries, restored.waterEntries)
         assertEquals(local.stepEntries, restored.stepEntries)
         assertEquals("private note", restored.noteText)
@@ -48,6 +50,7 @@ class CloudSyncCodecTest {
         val snapshot = CloudSyncCodec.fromLocal(
             MindSavedState(
                 waterGoal = 10,
+            stepGoal = 15_000,
                 waterEntries = listOf(WaterEntry(now - 1_000L), WaterEntry(now)),
                 stepEntries = listOf(StepEntry(now, 450)),
                 habitHistory = listOf(HabitDayRecord(todayKey, 5, 3)),
@@ -71,6 +74,7 @@ class CloudSyncCodecTest {
 
         assertEquals(2, restored.water)
         assertEquals(10, restored.waterGoal)
+        assertEquals(15_000, restored.stepGoal)
         assertEquals(450, restored.steps)
         assertEquals(5, restored.habitMask)
         assertEquals(30, restored.studyMinutes)
@@ -83,6 +87,17 @@ class CloudSyncCodecTest {
         assertEquals(123, restored.focusSeconds)
         assertEquals(deviceState.activeSleepStartedAt, restored.activeSleepStartedAt)
         assertEquals(false, restored.stepSensorInitialized)
+    }
+
+    @Test
+    fun oldCloudSnapshotWithoutStepGoalKeepsCurrentDeviceGoal() {
+        val now = System.currentTimeMillis()
+        val oldJson = CloudSyncCodec.encode(
+            CloudSyncCodec.fromLocal(MindSavedState(stepGoal = 10_000), revision = 1L)
+        ).replace(",\"stepGoal\":10000", "")
+        val decoded = CloudSyncCodec.decode(oldJson)
+        val restored = CloudSyncCodec.toLocal(decoded, MindSavedState(stepGoal = 18_000))
+        assertEquals(18_000, restored.stepGoal)
     }
 
     @Test
