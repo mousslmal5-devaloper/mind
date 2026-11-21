@@ -1396,7 +1396,7 @@ private fun FitnessScreen(steps: Int, stepGoal: Int, sensorAvailable: Boolean, s
                 Text(mindString(english, "خطوات اليوم", "Today's steps"), color = Gold, fontWeight = FontWeight.Bold)
                 Text(steps.toString(), color = Gold, fontSize = 36.sp, fontWeight = FontWeight.Bold)
                 Text(mindString(english, "من هدف يومي قدره $stepGoal خطوة", "$stepGoal-step daily goal"), color = Muted, fontSize = 12.sp)
-                LinearProgressIndicator(progress = { (steps.toFloat() / stepGoal.coerceAtLeast(1)).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = Gold)
+                LinearProgressIndicator(progress = (steps.toFloat() / stepGoal.coerceAtLeast(1)).coerceIn(0f, 1f), modifier = Modifier.fillMaxWidth(), color = Gold)
                 Text(if (sensorAvailable) mindString(english, "تُقاس تلقائياً من مستشعر الخطوات", "Measured automatically by the step sensor") else mindString(english, "مستشعر الخطوات غير متاح حالياً", "Step sensor is currently unavailable"), color = Muted, fontSize = 12.sp)
             }
         }
